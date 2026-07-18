@@ -51,7 +51,7 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
             <div
               key={c.id}
               className={cn(
-                'group flex items-center justify-between px-3 py-2 hover:bg-accent cursor-pointer',
+                'group flex items-center justify-between px-3 py-3 hover:bg-accent cursor-pointer',
                 c.id === activeId && 'bg-accent',
               )}
               onClick={() => c.id != null && onSelect(c.id)}

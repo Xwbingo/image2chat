@@ -5,18 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Trash2, Edit, Plus } from 'lucide-react'
+import { Trash2, Edit, Plus, Zap } from 'lucide-react'
 import { useProviders } from '@/hooks/useProviders'
 import { addProvider, updateProvider, deleteProvider } from '@/lib/repo'
-import { db } from '@/lib/db'
+import { db, type ProviderPreset } from '@/lib/db'
+import { useToast } from '@/components/ui/use-toast'
+import { validateApiKey } from '@/lib/api/validate'
 
 export function SettingsPage() {
   const providers = useProviders()
+  const { toast } = useToast()
   const [editing, setEditing] = useState<{ id: number; key: string } | null>(null)
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
   const [key, setKey] = useState('')
+  const [testingId, setTestingId] = useState<number | null>(null)
 
   async function saveAdd() {
     if (!name.trim() || !url.trim()) return
@@ -32,9 +36,25 @@ export function SettingsPage() {
     setAdding(false); setName(''); setUrl(''); setKey('')
   }
 
+  async function handleTest(p: ProviderPreset & { id: number }) {
+    if (!p.apiKey) {
+      toast({ variant: 'destructive', title: '未配置密钥', description: '请先填写密钥再测试' })
+      return
+    }
+    setTestingId(p.id)
+    toast({ title: '正在测试连接…' })
+    const result = await validateApiKey(p.baseUrl, p.apiKey)
+    setTestingId(null)
+    if (result.valid) {
+      toast({ title: '密钥有效 ✓', description: `${p.name} 连接正常` })
+    } else {
+      toast({ variant: 'destructive', title: '密钥无效', description: result.error?.message ?? '未知错误' })
+    }
+  }
+
   return (
     <div className="min-h-screen p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">设置</h1>
+      <h1 className="text-2xl font-semibold mb-4">密钥管理</h1>
       <div className="flex justify-end mb-4">
         <Button onClick={() => setAdding(true)}><Plus className="w-4 h-4 mr-2" /> 添加自定义</Button>
       </div>
@@ -51,6 +71,15 @@ export function SettingsPage() {
             <CardContent className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => setEditing({ id: p.id!, key: p.apiKey })}>
                 <Edit className="w-3 h-3 mr-1" /> 编辑 Key
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => p.id != null && handleTest({ ...p, id: p.id })}
+                disabled={testingId === p.id}
+                aria-label="测试密钥"
+              >
+                <Zap className="w-3 h-3 mr-1" /> 测试
               </Button>
               {p.isBuiltIn === 0 && (
                 <Button size="sm" variant="outline" onClick={() => p.id != null && deleteProvider(p.id)}>

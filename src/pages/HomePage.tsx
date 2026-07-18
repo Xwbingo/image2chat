@@ -86,7 +86,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground">
+    <div className="h-screen flex flex-col bg-background text-foreground safe-top safe-bottom">
       <OfflineBanner />
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden md:block h-full">
@@ -104,7 +104,7 @@ export function HomePage() {
                 <p className="text-lg mb-4">开始一次新的创作</p>
                 <div className="flex gap-2 justify-center">
                   <Button onClick={handleNew}>新建对话</Button>
-                  <Button variant="outline" onClick={() => navigate('/settings')}>管理中转站</Button>
+                  <Button variant="outline" onClick={() => navigate('/settings')}>密钥管理</Button>
                 </div>
               </div>
             </div>

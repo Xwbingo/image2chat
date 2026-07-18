@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from './db'
 import {
-  addProvider, countProviders, seedBuiltinProviders,
+  addProvider, countProviders, seedBuiltinProviders, dedupeProviders,
   addConversation, addMessage, updateMessageStatus, getMessage,
   addImage, setMessageBlobId, deleteConversation,
 } from './repo'
@@ -10,6 +10,31 @@ import {
 beforeEach(async () => {
   await db.delete()
   await db.open()
+})
+
+describe('dedupeProviders', () => {
+  it('removes duplicate rows sharing the same baseUrl and name, keeping the one with the apiKey', async () => {
+    await db.providers.bulkAdd([
+      { name: 'Packy', baseUrl: 'https://www.packyapi.com', apiKey: '',     type: 'packy', isBuiltIn: 1, createdAt: 1 },
+      { name: 'Packy', baseUrl: 'https://www.packyapi.com', apiKey: 'sk-1', type: 'packy', isBuiltIn: 1, createdAt: 2 },
+      { name: 'Packy', baseUrl: 'https://www.packyapi.com', apiKey: 'sk-2', type: 'packy', isBuiltIn: 1, createdAt: 3 },
+    ])
+    const removed = await dedupeProviders()
+    expect(removed).toBe(2)
+    const remaining = await db.providers.toArray()
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0].apiKey).toBe('sk-1')
+  })
+
+  it('keeps both providers when baseUrl+name differ', async () => {
+    await db.providers.bulkAdd([
+      { name: 'Packy',  baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy',  isBuiltIn: 1, createdAt: 1 },
+      { name: 'RunAPI', baseUrl: 'https://runapi.co',        apiKey: 'k', type: 'runapi', isBuiltIn: 1, createdAt: 2 },
+    ])
+    const removed = await dedupeProviders()
+    expect(removed).toBe(0)
+    expect(await countProviders()).toBe(2)
+  })
 })
 
 describe('seedBuiltinProviders', () => {

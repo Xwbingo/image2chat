@@ -50,7 +50,7 @@ export function Composer({ onSend, editSource, onClearEdit }: Props) {
   }
 
   return (
-    <div className="border-t border-border p-3 bg-background">
+    <div className="border-t border-border p-3 bg-background safe-bottom">
       {editSource && (
         <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="bg-accent px-2 py-1 rounded">编辑模式</span>
@@ -75,8 +75,10 @@ export function Composer({ onSend, editSource, onClearEdit }: Props) {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
           }}
-          rows={2}
+          rows={1}
           className="resize-none"
+          inputMode="text"
+          autoComplete="off"
         />
         <Button onClick={handleSend} disabled={text.trim().length === 0} aria-label="发送">
           <Send className="w-4 h-4" />

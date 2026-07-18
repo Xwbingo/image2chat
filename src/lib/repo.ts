@@ -42,6 +42,28 @@ export async function seedBuiltinProviders(): Promise<void> {
   }
 }
 
+export async function dedupeProviders(): Promise<number> {
+  const all = await db.providers.toArray()
+  all.sort((a, b) => {
+    const ak = a.apiKey.length > 0 ? 0 : 1
+    const bk = b.apiKey.length > 0 ? 0 : 1
+    if (ak !== bk) return ak - bk
+    return (a.id ?? 0) - (b.id ?? 0)
+  })
+  const seen = new Map<string, ProviderPreset>()
+  const toDelete: number[] = []
+  for (const p of all) {
+    const key = `${p.baseUrl}|${p.name}`
+    if (seen.has(key)) {
+      toDelete.push(p.id!)
+    } else {
+      seen.set(key, p)
+    }
+  }
+  if (toDelete.length > 0) await db.providers.bulkDelete(toDelete)
+  return toDelete.length
+}
+
 export async function addConversation(providerPresetId: number, title = '新对话'): Promise<number> {
   const now = Date.now()
   return db.conversations.add({ title, createdAt: now, updatedAt: now, providerPresetId })

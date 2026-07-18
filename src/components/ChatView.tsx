@@ -53,7 +53,7 @@ export function ChatView({
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-2 p-3 border-b border-border">
+      <header className="flex items-center gap-2 p-3 border-b border-border safe-top">
         <Button size="icon" variant="ghost" onClick={onBack} aria-label="back">
           <ArrowLeft className="w-4 h-4" />
         </Button>
