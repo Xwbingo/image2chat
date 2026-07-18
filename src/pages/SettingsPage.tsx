@@ -42,13 +42,21 @@ export function SettingsPage() {
       return
     }
     setTestingId(p.id)
-    toast({ title: '正在测试连接…' })
+    toast({ title: '正在测试连接…', description: '发送最小请求验证密钥（消耗 1 次额度）' })
     const result = await validateApiKey(p.baseUrl, p.apiKey)
     setTestingId(null)
     if (result.valid) {
-      toast({ title: '密钥有效 ✓', description: `${p.name} 连接正常` })
+      toast({
+        title: '密钥有效 ✓',
+        description: `${p.name} 连接正常，可以生成图片`,
+      })
     } else {
-      toast({ variant: 'destructive', title: '密钥无效', description: result.error?.message ?? '未知错误' })
+      const msg = result.error?.message ?? '未知错误'
+      toast({
+        variant: 'destructive',
+        title: '无法确认密钥有效',
+        description: msg,
+      })
     }
   }
 
