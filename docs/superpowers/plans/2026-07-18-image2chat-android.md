@@ -579,7 +579,99 @@ class ApiClient(private val moshi: Moshi, private val baseOkHttp: OkHttpClient) 
 - Create: `app/src/main/kotlin/com/image2chat/app/di/RepoModule.kt`
 - Test: `app/src/test/kotlin/com/image2chat/app/data/repo/GenerationRepositoryTest.kt`
 
-- [ ] **Step 1: Write failing test `GenerationRepositoryTest.kt`** — Robolectric + MockWebServer; `providerRepo.get` returns fake preset; `convRepo.appendMessage` returns `100L` (user) and `101L` (assistant); enqueue 200 response with `{"data":[{"url":"http://localhost/x.png"}]}`; assert `repo.generate(7, "cat", SIZE_2048x1152)` returns `Result.success(101L)`; mock `ImageDownloader.downloadTo` and verify called with the URL.
+- [ ] **Step 1: Write failing test `GenerationRepositoryTest.kt`**
+```kotlin
+package com.image2chat.app.data.repo
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import com.image2chat.app.data.api.GenerateRequest
+import com.image2chat.app.data.api.GenerateResponse
+import com.image2chat.app.data.api.ImageData
+import com.image2chat.app.data.api.ImageApi
+import com.image2chat.app.data.api.ProviderRegistry
+import com.image2chat.app.data.db.MessageKind
+import com.image2chat.app.data.db.MessageRole
+import com.image2chat.app.data.db.MessageStatus
+import com.image2chat.app.domain.model.ImageSize
+import com.image2chat.app.domain.model.ProviderType
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.io.File
+
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [33])
+class GenerationRepositoryTest {
+
+    private lateinit var ctx: Context
+    private lateinit var server: MockWebServer
+    private lateinit var api: ImageApi
+    private lateinit var convRepo: ConversationRepository
+    private lateinit var providerRepo: ProviderRepository
+    private lateinit var downloader: ImageDownloader
+    private lateinit var repo: GenerationRepository
+
+    @Before
+    fun setUp() {
+        ctx = ApplicationProvider.getApplicationContext()
+        server = MockWebServer().apply { start() }
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        api = Retrofit.Builder().baseUrl(server.url("/"))
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build().create(ImageApi::class.java)
+        convRepo = mockk(relaxed = true)
+        providerRepo = mockk(relaxed = true)
+        downloader = mockk(relaxed = true)
+        coEvery { downloader.downloadTo(any(), any()) } returns Result.success(File("build/test.png"))
+        coEvery { providerRepo.get(any()) } returns ProviderPreset(
+            id = 1, name = "P",
+            baseUrl = server.url("/").toString().trimEnd('/'),
+            apiKey = "k", type = ProviderType.PACKY, isBuiltIn = false, createdAt = 1,
+        )
+        repo = GenerationRepository(
+            apiFactory = { _, _ -> api },
+            convRepo = convRepo,
+            providerRepo = providerRepo,
+            downloader = downloader,
+            providerRegistry = ProviderRegistry,
+            filesDir = ctx.filesDir,
+            userAgent = "device-1",
+        )
+    }
+
+    @After
+    fun tearDown() { server.shutdown() }
+
+    @Test
+    fun `generate success path persists SUCCESS and triggers download`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"created":1,"data":[{"url":"http://localhost/x.png"}]}"""))
+        coEvery { convRepo.getConversation(7L) } returns com.image2chat.app.data.repo.Conversation(7, "x", 0, 0, 1)
+        coEvery { convRepo.appendMessage(any(), any(), any(), any(), any(), any(), any(), any()) } returnsMany listOf(100L, 101L)
+
+        val result = repo.generate(conversationId = 7L, prompt = "cat", size = ImageSize.SIZE_2048x1152)
+        assertEquals(101L, result.getOrThrow())
+        coVerify { downloader.downloadTo(eq("http://localhost/x.png"), any()) }
+        coVerify { convRepo.updateMessageStatus(101L, MessageStatus.SUCCESS) }
+    }
+}
+```
+
+> **Note**: import `io.mockk.eq` at the top of the test file.
 
 - [ ] **Step 2: Verify test fails.**
 
