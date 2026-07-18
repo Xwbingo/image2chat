@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+.superpowers/
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+.DS_Store
