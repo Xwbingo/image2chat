@@ -46,7 +46,6 @@ export function HomePage() {
       const srcMsg = await db.messages.get(editSourceId)
       if (srcMsg) setEditSource({ messageId: editSourceId, blobId: srcMsg.imageBlobId! })
     }
-    setEditSource(undefined)
     await generate(conversationId, prompt, useSession.getState().defaultSize, editSourceId)
   }
 
@@ -100,7 +99,7 @@ export function HomePage() {
       </Sheet>
       <ImageViewer
         blobId={viewerBlobId}
-        prompt={viewerBlobId != null ? undefined : undefined}
+        prompt={undefined}
         onClose={() => setViewerBlobId(null)}
       />
     </div>
