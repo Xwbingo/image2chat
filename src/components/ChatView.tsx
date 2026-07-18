@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useMessages } from '@/hooks/useMessages'
 import { updateMessageStatus } from '@/lib/repo'
+import { Composer } from './Composer'
 import { MessageBubble } from './MessageBubble'
 
 interface Props {
@@ -12,9 +14,24 @@ interface Props {
   onOpenImage: (blobId: number) => void
   onRetry: (msgId: number) => void
   onEdit: (msgId: number) => void
+  onSend: (prompt: string, editSourceMessageId?: number) => void
+  editSource?: { messageId: number; blobId: number }
+  onClearEdit?: () => void
+  statusBar?: ReactNode
 }
 
-export function ChatView({ conversationId, title, onBack, onOpenImage, onRetry, onEdit }: Props) {
+export function ChatView({
+  conversationId,
+  title,
+  onBack,
+  onOpenImage,
+  onRetry,
+  onEdit,
+  onSend,
+  editSource,
+  onClearEdit,
+  statusBar,
+}: Props) {
   const messages = useMessages(conversationId)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -55,6 +72,8 @@ export function ChatView({ conversationId, title, onBack, onOpenImage, onRetry, 
           ))
         )}
       </div>
+      {statusBar}
+      <Composer onSend={onSend} editSource={editSource} onClearEdit={onClearEdit} />
     </div>
   )
 }
