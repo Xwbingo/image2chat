@@ -74,3 +74,29 @@ it('error path: marks message failed with errorCode', async () => {
   expect(assistant.status).toBe('failed')
   expect(assistant.errorCode).toBe('unauthorized')
 })
+
+it('edit mode calls editImage with source blob and persists new image', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/edits', () =>
+    HttpResponse.json({ created: 1, data: [{ url: 'https://cdn/y.png' }] }),
+  ))
+  server.use(http.get('https://cdn/y.png', () =>
+    new HttpResponse(new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer, { headers: { 'content-type': 'image/png' } }),
+  ))
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+  const sourceBlob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
+  const sourceImgId = await db.images.add({ blob: sourceBlob, mimeType: 'image/png', createdAt: 0 })
+  const sourceMsgId = await db.messages.add({
+    conversationId: cid, role: 'assistant', kind: 'image_result',
+    size: '2048x1152', status: 'success', imageBlobId: sourceImgId, createdAt: 0,
+  })
+
+  const { generate } = useGenerate()
+  const res = (await generate(cid, 'make red', '2048x1152', sourceMsgId)) as { messageId: number }
+  expect(res?.messageId).toBeGreaterThan(0)
+  const msgs = (await db.messages.toArray()).filter((m) => m.id !== sourceMsgId)
+  expect(msgs).toHaveLength(2)
+  expect(msgs[0].kind).toBe('image_edit_request')
+  expect(msgs[1].status).toBe('success')
+  expect(msgs[1].imageBlobId).toBeGreaterThan(0)
+})

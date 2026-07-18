@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { getProvider, addMessage, updateMessageStatus, setMessageBlobId, setMessageRemoteUrl, addImage, touchConversation, setMessagePrompt } from '@/lib/repo'
 import { generateImage, editImage } from '@/lib/api/client'
 import type { ApiError } from '@/lib/api/errors'
+import { parseNetworkError } from '@/lib/api/errors'
 
 interface Success { messageId: number }
 interface Failure { error: ApiError }
@@ -16,25 +17,26 @@ export function useGenerate() {
       size: string,
       editSourceMessageId?: number,
     ): Promise<GenerateResult> => {
-      const conv = await db.conversations.get(conversationId)
-      if (!conv) return { error: { kind: 'bad_request', message: '会话不存在' } }
-      const provider = await getProvider(conv.providerPresetId)
-      if (!provider) return { error: { kind: 'bad_request', message: '中转站未配置' } }
-
-      const now = Date.now()
-      const userMsgId = await addMessage({
-        conversationId, role: 'user',
-        kind: editSourceMessageId != null ? 'image_edit_request' : 'text_prompt',
-        prompt, size, status: 'success', createdAt: now,
-      })
-      if (editSourceMessageId != null) await setMessagePrompt(userMsgId, prompt)
-      const assistantId = await addMessage({
-        conversationId, role: 'assistant', kind: 'image_result',
-        size, status: 'generating', createdAt: now + 1,
-      })
-      await touchConversation(conversationId)
-
+      let assistantId: number | undefined
       try {
+        const conv = await db.conversations.get(conversationId)
+        if (!conv) return { error: { kind: 'bad_request', message: '会话不存在' } }
+        const provider = await getProvider(conv.providerPresetId)
+        if (!provider) return { error: { kind: 'bad_request', message: '中转站未配置' } }
+
+        const now = Date.now()
+        const userMsgId = await addMessage({
+          conversationId, role: 'user',
+          kind: editSourceMessageId != null ? 'image_edit_request' : 'text_prompt',
+          prompt, size, status: 'success', createdAt: now,
+        })
+        if (editSourceMessageId != null) await setMessagePrompt(userMsgId, prompt)
+        assistantId = await addMessage({
+          conversationId, role: 'assistant', kind: 'image_result',
+          size, status: 'generating', createdAt: now + 1,
+        })
+        await touchConversation(conversationId)
+
         const url = await fetchImageUrl(provider.baseUrl, provider.apiKey, prompt, size, editSourceMessageId)
         await setMessageRemoteUrl(assistantId, url)
         try {
@@ -48,8 +50,10 @@ export function useGenerate() {
         await updateMessageStatus(assistantId, 'success')
         return { messageId: assistantId }
       } catch (e: any) {
-        const err: ApiError = e?.kind ? e : { kind: 'network', message: e?.message ?? '未知错误' }
-        await updateMessageStatus(assistantId, 'failed', String((err as any).kind ?? 'unknown'))
+        const err: ApiError = e?.kind ? e : parseNetworkError(e)
+        if (assistantId != null) {
+          try { await updateMessageStatus(assistantId, 'failed', String((err as any).kind ?? 'unknown')) } catch { /* best-effort */ }
+        }
         return { error: err }
       }
     }, []),
