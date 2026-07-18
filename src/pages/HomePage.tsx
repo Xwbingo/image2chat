@@ -40,13 +40,35 @@ export function HomePage() {
     navigate(`/c/${id}`)
   }
 
-  async function handleSend(prompt: string, editSourceId?: number) {
+  async function handleSend(prompt: string, editSourceId?: number, size?: string) {
     if (conversationId == null) return
     if (editSourceId != null) {
       const srcMsg = await db.messages.get(editSourceId)
       if (srcMsg) setEditSource({ messageId: editSourceId, blobId: srcMsg.imageBlobId! })
     }
-    await generate(conversationId, prompt, useSession.getState().defaultSize, editSourceId)
+    const finalSize = size ?? useSession.getState().defaultSize
+    await generate(conversationId, prompt, finalSize, editSourceId)
+  }
+
+  async function handleRetry(msgId: number) {
+    const m = await db.messages.get(msgId)
+    if (!m?.prompt || m.role !== 'assistant') return
+    let editSourceId: number | undefined
+    const userMsgs = await db.messages
+      .where('conversationId').equals(m.conversationId)
+      .and((x) => x.role === 'user' && x.createdAt < m.createdAt)
+      .sortBy('createdAt')
+    const lastUser = userMsgs[userMsgs.length - 1]
+    if (lastUser?.kind === 'image_edit_request') {
+      const prevAssistant = await db.messages
+        .where('conversationId').equals(m.conversationId)
+        .and((x) => x.role === 'assistant' && x.createdAt < lastUser.createdAt)
+        .reverse()
+        .sortBy('createdAt')
+      const src = prevAssistant[0]
+      if (src?.id != null) editSourceId = src.id
+    }
+    void handleSend(m.prompt, editSourceId, m.size)
   }
 
   function handleEdit(msgId: number) {
@@ -82,7 +104,7 @@ export function HomePage() {
               conversationId={conversationId}
               onBack={() => navigate('/')}
               onOpenImage={(blobId) => setViewerBlobId(blobId)}
-              onRetry={(msgId) => db.messages.get(msgId).then((m) => { if (m?.prompt) void handleSend(m.prompt) })}
+              onRetry={handleRetry}
               onEdit={handleEdit}
               onSend={handleSend}
               editSource={editSource}

@@ -22,7 +22,7 @@ it('completes onboarding with packy template + key', async () => {
   await waitFor(() => expect(onDone).toHaveBeenCalled())
   const providers = await db.providers.toArray()
   const packy = providers.filter((p) => p.type === 'packy')
-  expect(packy).toHaveLength(2)
+  expect(packy).toHaveLength(1)
   const userProvider = packy.find((p) => p.apiKey === 'sk-test')
   expect(userProvider).toBeDefined()
 })

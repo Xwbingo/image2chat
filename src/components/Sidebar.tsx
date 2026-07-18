@@ -1,9 +1,13 @@
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { useConversations } from '@/hooks/useConversations'
 import { useProviders } from '@/hooks/useProviders'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { deleteConversation } from '@/lib/repo'
+import { deleteConversation, renameConversation } from '@/lib/repo'
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog'
 
 interface Props {
   activeId?: number
@@ -15,6 +19,22 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
   const conversations = useConversations()
   const providers = useProviders()
   const activeProvider = providers[0]
+  const [renamingId, setRenamingId] = useState<number | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (renamingId != null) inputRef.current?.focus()
+  }, [renamingId])
+
+  function commitRename() {
+    if (renamingId == null) return
+    const v = renameValue.trim()
+    if (v) void renameConversation(renamingId, v)
+    setRenamingId(null)
+    setRenameValue('')
+  }
 
   return (
     <aside className="w-64 border-r border-border flex flex-col h-full bg-card">
@@ -28,26 +48,85 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
           <p className="text-sm text-muted-foreground p-4 text-center">还没有会话</p>
         ) : (
           conversations.map((c) => (
-            <button
+            <div
               key={c.id}
-              onClick={() => c.id != null && onSelect(c.id)}
               className={cn(
-                'w-full text-left px-3 py-2 hover:bg-accent flex items-center justify-between group',
+                'group flex items-center justify-between px-3 py-2 hover:bg-accent cursor-pointer',
                 c.id === activeId && 'bg-accent',
               )}
+              onClick={() => c.id != null && onSelect(c.id)}
             >
-              <span className="truncate text-sm">{c.title}</span>
-              <Trash2
-                className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                onClick={(e) => { e.stopPropagation(); if (c.id != null) deleteConversation(c.id) }}
+              {renamingId === c.id ? (
+                <input
+                  ref={inputRef}
+                  className="flex-1 text-sm bg-background border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitRename() }
+                    else if (e.key === 'Escape') { setRenamingId(null); setRenameValue('') }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span
+                  className="truncate text-sm flex-1"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation()
+                    if (c.id != null) {
+                      setRenamingId(c.id)
+                      setRenameValue(c.title)
+                    }
+                  }}
+                >
+                  {c.title}
+                </span>
+              )}
+              <Pencil
+                className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 ml-1"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (c.id != null) {
+                    setRenamingId(c.id)
+                    setRenameValue(c.title)
+                  }
+                }}
               />
-            </button>
+              <Trash2
+                className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0 ml-1"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (c.id != null) setConfirmDeleteId(c.id)
+                }}
+              />
+            </div>
           ))
         )}
       </div>
       <div className="p-3 border-t border-border text-xs text-muted-foreground">
         当前：{activeProvider?.name ?? '未配置'}
       </div>
+      <Dialog open={confirmDeleteId != null} onOpenChange={(o) => !o && setConfirmDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>删除对话？</DialogTitle>
+            <DialogDescription>此操作不可撤销，所有消息和图片都将被删除。</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>取消</Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (confirmDeleteId != null) await deleteConversation(confirmDeleteId)
+                setConfirmDeleteId(null)
+              }}
+            >
+              删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </aside>
   )
 }

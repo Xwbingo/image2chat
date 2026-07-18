@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { db } from '@/lib/db'
-import { getProvider, addMessage, updateMessageStatus, setMessageBlobId, setMessageRemoteUrl, addImage, touchConversation, setMessagePrompt } from '@/lib/repo'
+import { getProvider, addMessage, updateMessageStatus, setMessageBlobId, setMessageRemoteUrl, addImage, touchConversation } from '@/lib/repo'
 import { generateImage, editImage } from '@/lib/api/client'
 import type { ApiError } from '@/lib/api/errors'
 import { parseNetworkError } from '@/lib/api/errors'
@@ -8,6 +8,10 @@ import { parseNetworkError } from '@/lib/api/errors'
 interface Success { messageId: number }
 interface Failure { error: ApiError }
 export type GenerateResult = Success | Failure
+
+function isApiError(e: unknown): e is ApiError {
+  return typeof e === 'object' && e !== null && 'kind' in e && typeof (e as { kind: unknown }).kind === 'string'
+}
 
 export function useGenerate() {
   return {
@@ -25,12 +29,11 @@ export function useGenerate() {
         if (!provider) return { error: { kind: 'bad_request', message: '中转站未配置' } }
 
         const now = Date.now()
-        const userMsgId = await addMessage({
+        await addMessage({
           conversationId, role: 'user',
           kind: editSourceMessageId != null ? 'image_edit_request' : 'text_prompt',
           prompt, size, status: 'success', createdAt: now,
         })
-        if (editSourceMessageId != null) await setMessagePrompt(userMsgId, prompt)
         assistantId = await addMessage({
           conversationId, role: 'assistant', kind: 'image_result',
           size, status: 'generating', createdAt: now + 1,
@@ -49,10 +52,10 @@ export function useGenerate() {
         } catch { /* keep remoteUrl as fallback */ }
         await updateMessageStatus(assistantId, 'success')
         return { messageId: assistantId }
-      } catch (e: any) {
-        const err: ApiError = e?.kind ? e : parseNetworkError(e)
+      } catch (e: unknown) {
+        const err: ApiError = isApiError(e) ? e : parseNetworkError(e)
         if (assistantId != null) {
-          try { await updateMessageStatus(assistantId, 'failed', String((err as any).kind ?? 'unknown')) } catch { /* best-effort */ }
+          try { await updateMessageStatus(assistantId, 'failed', err.kind) } catch { /* best-effort */ }
         }
         return { error: err }
       }

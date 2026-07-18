@@ -19,17 +19,6 @@ function extractMessage(body: string | undefined): string | undefined {
 
 export function parseApiError(response: Response, body?: string): ApiError {
   const msg = extractMessage(body)
-  if (response.status === 200) {
-    if (body) {
-      try {
-        const parsed = JSON.parse(body) as { data?: unknown[] }
-        if (Array.isArray(parsed.data) && parsed.data.length > 0) {
-          return { kind: 'bad_request', message: '意外的 200 响应' }
-        }
-      } catch { /* fall through to content_filtered */ }
-    }
-    return { kind: 'content_filtered', message: msg ?? '返回为空' }
-  }
   switch (response.status) {
     case 401: return { kind: 'unauthorized', message: msg ?? '密钥无效或已过期' }
     case 402: return { kind: 'insufficient', message: msg ?? '余额不足' }

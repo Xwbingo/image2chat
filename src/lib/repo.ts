@@ -56,6 +56,9 @@ export async function touchConversation(id: number): Promise<void> {
 }
 
 export async function deleteConversation(id: number): Promise<void> {
+  const msgs = await db.messages.where('conversationId').equals(id).toArray()
+  const blobIds = msgs.map((m) => m.imageBlobId).filter((x): x is number => x != null)
+  if (blobIds.length > 0) await db.images.bulkDelete(blobIds)
   await db.messages.where('conversationId').equals(id).delete()
   await db.conversations.delete(id)
 }

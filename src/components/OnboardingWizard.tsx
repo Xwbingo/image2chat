@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { addProvider, seedBuiltinProviders } from '@/lib/repo'
+import { addProvider, seedBuiltinProviders, updateProvider } from '@/lib/repo'
+import { db } from '@/lib/db'
 import { BUILTIN_PROVIDERS } from '@/lib/api/providers'
 import type { ProviderType } from '@/lib/db'
 
@@ -29,11 +30,16 @@ export function OnboardingWizard({ onDone }: Props) {
       type === 'packy' ? BUILTIN_PROVIDERS.packy.baseUrl : BUILTIN_PROVIDERS.runapi.baseUrl
     const name = type === 'custom' ? (customName.trim() || '自定义') :
       type === 'packy' ? 'Packy' : 'RunAPI'
-    await addProvider({
-      name, baseUrl, apiKey: key.trim(),
-      type, isBuiltIn: type === 'custom' ? 0 : 1,
-      createdAt: Date.now(),
-    })
+    const existing = await db.providers.where('type').equals(type).first()
+    if (existing?.id != null) {
+      await updateProvider(existing.id, { apiKey: key.trim(), name, baseUrl })
+    } else {
+      await addProvider({
+        name, baseUrl, apiKey: key.trim(),
+        type, isBuiltIn: 0,
+        createdAt: Date.now(),
+      })
+    }
     setBusy(false)
     onDone()
   }

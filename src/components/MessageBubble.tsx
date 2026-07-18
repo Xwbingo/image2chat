@@ -30,7 +30,7 @@ const ERROR_DISPLAY: Record<string, string> = {
 
 function isRetryable(errorCode?: string): boolean {
   if (!errorCode) return true
-  return ['rate_limited', 'server_error', 'network', '500', '429'].includes(errorCode)
+  return ['rate_limited', 'server_error', 'network', 'timeout', '500', '429'].includes(errorCode)
 }
 
 export function MessageBubble({ message, onImageClick, onRetry, onEdit }: Props) {

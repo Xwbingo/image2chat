@@ -20,14 +20,6 @@ describe('parseApiError', () => {
     expect(e.kind).toBe('bad_request')
     if (e.kind === 'bad_request') expect(e.message).toBe('bad size')
   })
-  it('200 with empty data array -> content_filtered', () => {
-    const e = parseApiError(new Response('{"created":1,"data":[]}', { status: 200 }))
-    expect(e.kind).toBe('content_filtered')
-  })
-  it('200 with non-empty data is bad_request (caller misuse)', () => {
-    const e = parseApiError(new Response('', { status: 200 }), '{"data":[{"url":"x"}]}')
-    expect(e.kind).toBe('bad_request')
-  })
 })
 
 describe('parseNetworkError', () => {
