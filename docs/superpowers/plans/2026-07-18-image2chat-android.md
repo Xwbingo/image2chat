@@ -766,7 +766,7 @@ object Routes {
 - [ ] **Step 3: Write `OnboardingViewModel.kt`**
 ```kotlin
 data class ProviderTemplate(val type: ProviderType, val defaultName: String, val defaultUrl: String)
-data class OnboardingUiState(val selectedType: ProviderType? = null, val draftName: String = "", val draftUrl: String = "", val draftKey: String = "", val errorKeyEmpty: Boolean = false)
+data class OnboardingUiState(val selectedType: ProviderType? = null, val draftName: String = "", val draftUrl: String = "", val draftKey: String = "", val errorKeyEmpty: Boolean = false, val saving: Boolean = false)
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(private val repo: ProviderRepository) : ViewModel() {
     val builtInTemplates = listOf(
@@ -775,20 +775,27 @@ class OnboardingViewModel @Inject constructor(private val repo: ProviderReposito
     )
     private val _state = MutableStateFlow(OnboardingUiState())
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
+    private val _saved = Channel<Unit>(Channel.BUFFERED)
+    val saved: Flow<Unit> = _saved.receiveAsFlow()
     fun selectTemplate(type: ProviderType) { val tpl = builtInTemplates.firstOrNull { it.type == type }
         _state.value = OnboardingUiState(selectedType = type, draftName = tpl?.defaultName ?: "", draftUrl = tpl?.defaultUrl ?: "", draftKey = "") }
     fun setCustomName(v: String) { _state.value = _state.value.copy(draftName = v) }
     fun setCustomUrl(v: String) { _state.value = _state.value.copy(draftUrl = v) }
-    fun setKey(v: String) { _state.value = _state.value.copy(draftKey = v) }
+    fun setKey(v: String) { _state.value = _state.value.copy(draftKey = v, errorKeyEmpty = false) }
     fun finish() {
         val s = _state.value; val type = s.selectedType ?: return
         if (s.draftKey.isBlank()) { _state.value = s.copy(errorKeyEmpty = true); return }
-        viewModelScope.launch { repo.upsert(ProviderPreset(0, s.draftName.ifBlank { type.displayName }, s.draftUrl, s.draftKey.trim(), type, type != ProviderType.CUSTOM, System.currentTimeMillis())) }
+        if (s.saving) return
+        _state.value = s.copy(saving = true)
+        viewModelScope.launch {
+            repo.upsert(ProviderPreset(0, s.draftName.ifBlank { type.displayName }, s.draftUrl, s.draftKey.trim(), type, type != ProviderType.CUSTOM, System.currentTimeMillis()))
+            _saved.send(Unit)
+        }
     }
 }
 ```
 
-- [ ] **Step 4: Write `OnboardingRoute.kt` UI** — Two steps. Step 0: list cards (PACKY, RUNAPI) + "自定义" text button → on click `selectTemplate` + advance to step 1. Step 1: for non-CUSTOM show read-only "中转站/域名"; for CUSTOM show name + url OutlinedTextFields; always show key field with `KeyboardOptions(keyboardType = KeyboardType.Password)`; "完成" button calls `vm.finish()`. LaunchedEffect: when `state.draftKey.isNotBlank() && selectedType != null`, navigate via `onDone()`. (Note: the LaunchedEffect will fire as soon as key is non-empty after entering step 1 — this is a known design simplification; replace with explicit save-and-navigate in a follow-up.)
+- [ ] **Step 4: Write `OnboardingRoute.kt` UI** — Two steps. Step 0: list cards (PACKY, RUNAPI) + "自定义" text button → on click `selectTemplate` + advance to step 1. Step 1: for non-CUSTOM show read-only "中转站/域名"; for CUSTOM show name + url OutlinedTextFields; always show key field with `KeyboardOptions(keyboardType = KeyboardType.Password)`; "完成" button calls `vm.finish()` and is disabled while `state.saving`. `LaunchedEffect(Unit) { vm.saved.collect { onDone() } }` performs the navigation ONLY after a successful save (avoids the auto-navigate-on-keystroke bug).
 
 - [ ] **Step 5: Verify tests + build** — `./gradlew testDebugUnitTest assembleDebug`.
 
@@ -1021,8 +1028,11 @@ appId: com.image2chat.app
 - tapOn: "Packy"
 - inputText: "sk-test-fake"
 - tapOn: "完成"
-- assertVisible: "新对话"
-- tapOn: "新对话"
+- assertVisible: "image2chat"
+# Open drawer and tap FAB to create a new conversation
+- swipe: "right"
+- tapOn:
+    id: "new_conversation_fab"
 - inputText: "a red apple on a wooden table"
 - tapOn: "发送"
 - assertVisible: "正在创作…"
