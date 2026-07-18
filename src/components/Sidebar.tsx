@@ -111,7 +111,7 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
       </div>
       <div className="p-3 border-t border-border space-y-2 safe-bottom">
         <Button variant="ghost" className="w-full justify-start" onClick={() => location.assign('/settings')}>
-          <Settings className="w-4 h-4 mr-2" /> 管理中转站
+          <Settings className="w-4 h-4 mr-2" /> 管理密钥
         </Button>
         <p className="text-sm text-muted-foreground">当前：{activeProvider?.name ?? '未配置'}</p>
       </div>

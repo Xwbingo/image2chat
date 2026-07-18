@@ -11,6 +11,8 @@ import { addProvider, updateProvider, deleteProvider } from '@/lib/repo'
 import { db, type ProviderPreset } from '@/lib/db'
 import { useToast } from '@/components/ui/use-toast'
 import { validateApiKey } from '@/lib/api/validate'
+import { formatDistanceToNow } from 'date-fns'
+import { zhCN } from 'date-fns/locale'
 
 export function SettingsPage() {
   const providers = useProviders()
@@ -42,15 +44,17 @@ export function SettingsPage() {
       return
     }
     setTestingId(p.id)
-    toast({ title: '正在测试连接…', description: '发送最小请求验证密钥（消耗 1 次额度）' })
-    const result = await validateApiKey(p.baseUrl, p.apiKey)
+    toast({ title: '正在连接中转站…' })
+    const result = await validateApiKey(p.baseUrl, p.apiKey, p.corsProxy)
     setTestingId(null)
     if (result.valid) {
+      await updateProvider(p.id, { lastValidatedAt: Date.now(), lastValid: 1 })
       toast({
         title: '密钥有效 ✓',
         description: `${p.name} 连接正常，可以生成图片`,
       })
     } else {
+      await updateProvider(p.id, { lastValidatedAt: Date.now(), lastValid: 0 })
       const msg = result.error?.message ?? '未知错误'
       toast({
         variant: 'destructive',
@@ -76,24 +80,46 @@ export function SettingsPage() {
               </div>
               <Badge>{p.type}</Badge>
             </CardHeader>
-            <CardContent className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => setEditing({ id: p.id!, key: p.apiKey })}>
-                <Edit className="w-3 h-3 mr-1" /> 编辑 Key
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => p.id != null && handleTest({ ...p, id: p.id })}
-                disabled={testingId === p.id}
-                aria-label="测试密钥"
-              >
-                <Zap className="w-3 h-3 mr-1" /> 测试
-              </Button>
-              {p.isBuiltIn === 0 && (
-                <Button size="sm" variant="outline" onClick={() => p.id != null && deleteProvider(p.id)}>
-                  <Trash2 className="w-3 h-3 mr-1" /> 删除
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEditing({ id: p.id!, key: p.apiKey })}>
+                  <Edit className="w-3 h-3 mr-1" /> 编辑 Key
                 </Button>
-              )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => p.id != null && handleTest({ ...p, id: p.id })}
+                  disabled={testingId === p.id}
+                  aria-label="测试密钥"
+                >
+                  <Zap className="w-3 h-3 mr-1" /> 测试
+                </Button>
+                {p.isBuiltIn === 0 && (
+                  <Button size="sm" variant="outline" onClick={() => p.id != null && deleteProvider(p.id)}>
+                    <Trash2 className="w-3 h-3 mr-1" /> 删除
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs">CORS 代理（可选）</Label>
+                  {p.lastValidatedAt != null && (
+                    <Badge variant={p.lastValid ? 'default' : 'destructive'}>
+                      {p.lastValid ? '✓ 有效' : '✗ 无效'} · {formatDistanceToNow(p.lastValidatedAt, { addSuffix: true, locale: zhCN })}
+                    </Badge>
+                  )}
+                </div>
+                <Input
+                  placeholder="https://corsproxy.io/?"
+                  defaultValue={p.corsProxy ?? ''}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim()
+                    if (p.id != null) {
+                      void updateProvider(p.id, { corsProxy: v || undefined })
+                    }
+                  }}
+                />
+              </div>
             </CardContent>
           </Card>
         ))}

@@ -13,6 +13,9 @@ export interface ProviderPreset {
   type: ProviderType
   isBuiltIn: 0 | 1
   createdAt: number
+  corsProxy?: string
+  lastValidatedAt?: number
+  lastValid?: 0 | 1
 }
 
 export interface Conversation {
@@ -59,6 +62,12 @@ export class Image2ChatDB extends Dexie {
       images: '++id, createdAt',
     })
     this.version(2).stores({
+      providers: '++id, type, createdAt, baseUrl',
+      conversations: '++id, updatedAt, providerPresetId',
+      messages: '++id, conversationId, createdAt, status',
+      images: '++id, createdAt',
+    })
+    this.version(3).stores({
       providers: '++id, type, createdAt, baseUrl',
       conversations: '++id, updatedAt, providerPresetId',
       messages: '++id, conversationId, createdAt, status',

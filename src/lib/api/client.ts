@@ -1,5 +1,6 @@
 import type { GenerateRequest, GenerateResponse } from './types'
 import { parseApiError, parseNetworkError } from './errors'
+import { applyCorsProxy } from './proxy'
 
 const TIMEOUT_MS = 120_000
 
@@ -13,8 +14,12 @@ function withTimeout(ms: number, signal?: AbortSignal): AbortSignal {
 
 export async function generateImage(
   baseUrl: string, apiKey: string, req: GenerateRequest,
+  corsProxy?: string,
 ): Promise<GenerateResponse> {
-  const url = `${baseUrl.replace(/\/$/, '')}/v1/images/generations`
+  const url = applyCorsProxy(
+    `${baseUrl.replace(/\/$/, '')}/v1/images/generations`,
+    corsProxy,
+  )
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -45,8 +50,12 @@ export async function generateImage(
 export async function editImage(
   baseUrl: string, apiKey: string,
   prompt: string, sourceBlob: Blob, size: string,
+  corsProxy?: string,
 ): Promise<GenerateResponse> {
-  const url = `${baseUrl.replace(/\/$/, '')}/v1/images/edits`
+  const url = applyCorsProxy(
+    `${baseUrl.replace(/\/$/, '')}/v1/images/edits`,
+    corsProxy,
+  )
   const form = new FormData()
   form.append('model', 'gpt-image-2')
   form.append('prompt', prompt)

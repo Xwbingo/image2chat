@@ -1,5 +1,6 @@
 import type { ApiError } from './errors'
 import { parseApiError, parseNetworkError } from './errors'
+import { applyCorsProxy } from './proxy'
 
 export interface KeyValidationResult {
   valid: boolean
@@ -26,6 +27,7 @@ function withTimeout(ms: number): AbortSignal {
 export async function validateApiKey(
   baseUrl: string,
   apiKey: string,
+  corsProxy?: string,
 ): Promise<KeyValidationResult> {
   // Pre-check URL format
   try {
@@ -44,7 +46,10 @@ export async function validateApiKey(
     return { valid: false, error: { kind: 'bad_request', message: '密钥不能为空' } }
   }
 
-  const url = `${baseUrl.replace(/\/$/, '')}/v1/models`
+  const url = applyCorsProxy(
+    `${baseUrl.replace(/\/$/, '')}/v1/models`,
+    corsProxy,
+  )
   try {
     const res = await fetch(url, {
       method: 'GET',

@@ -50,15 +50,15 @@ export function useGenerate() {
 
         let response
         if (uploadBlob) {
-          response = await editImage(provider.baseUrl, provider.apiKey, prompt, uploadBlob, size)
+          response = await editImage(provider.baseUrl, provider.apiKey, prompt, uploadBlob, size, provider.corsProxy)
         } else if (editSourceMessageId != null) {
           const srcMsg = await db.messages.get(editSourceMessageId)
           if (!srcMsg?.imageBlobId) throw { kind: 'bad_request', message: '找不到参考图' }
           const img = await db.images.get(srcMsg.imageBlobId)
           if (!img) throw { kind: 'bad_request', message: '参考图丢失' }
-          response = await editImage(provider.baseUrl, provider.apiKey, prompt, img.blob, size)
+          response = await editImage(provider.baseUrl, provider.apiKey, prompt, img.blob, size, provider.corsProxy)
         } else {
-          response = await generateImage(provider.baseUrl, provider.apiKey, { prompt, size })
+          response = await generateImage(provider.baseUrl, provider.apiKey, { prompt, size }, provider.corsProxy)
         }
         const b64 = response.data[0]?.b64_json
         if (!b64) throw { kind: 'content_filtered', message: '返回为空' }

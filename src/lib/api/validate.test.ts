@@ -69,4 +69,16 @@ describe('validateApiKey', () => {
     expect(res.valid).toBe(false)
     expect(res.error?.kind).toBe('network')
   })
+
+  it('wraps URL via corsProxy when provided', async () => {
+    let capturedPath = ''
+    server.use(http.get('https://corsproxy.io/', ({ request }) => {
+      const u = new URL(request.url)
+      capturedPath = u.searchParams.get('url') ?? ''
+      return HttpResponse.json({ object: 'list', data: [] })
+    }))
+    const res = await validateApiKey('https://www.runapi.co', 'sk-test', 'https://corsproxy.io/?')
+    expect(res.valid).toBe(true)
+    expect(capturedPath).toBe('https://www.runapi.co/v1/models')
+  })
 })

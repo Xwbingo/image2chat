@@ -12,12 +12,27 @@ interface Props {
 
 export function ProviderSheet({ open, onOpenChange, currentId, onSelect }: Props) {
   const providers = useProviders()
+  const validProviders = providers.filter((p) => p.lastValid !== 0)
+
+  if (validProviders.length === 0) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="max-h-[60vh]">
+          <SheetHeader><SheetTitle>切换中转站</SheetTitle></SheetHeader>
+          <div className="p-4 text-sm text-muted-foreground text-center">
+            没有可用的中转站。请到「密钥管理」验证密钥。
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="max-h-[60vh]">
         <SheetHeader><SheetTitle>切换中转站</SheetTitle></SheetHeader>
         <div className="space-y-2 p-4">
-          {providers.map((p) => (
+          {validProviders.map((p) => (
             <Button
               key={p.id}
               variant={p.id === currentId ? 'default' : 'outline'}
