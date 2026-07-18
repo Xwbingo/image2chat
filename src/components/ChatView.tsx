@@ -59,7 +59,7 @@ export function ChatView({
         </Button>
         <h2 className="font-semibold truncate">{title ?? `会话 #${conversationId}`}</h2>
       </header>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-4">
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center mt-8">还没有消息，开始创作吧</p>
         ) : (

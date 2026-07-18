@@ -80,7 +80,7 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
         message.status === 'failed' ? 'border border-destructive' : 'border border-border',
       )}>
         {message.status === 'pending' || message.status === 'generating' ? (
-          <div className="h-48 w-64 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+          <div className="h-48 w-full max-w-xs sm:w-64 flex flex-col items-center justify-center gap-2 text-muted-foreground">
             <Loader2 className="w-6 h-6 animate-spin" />
             <span className="text-sm">{label}</span>
           </div>

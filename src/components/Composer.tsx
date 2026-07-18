@@ -75,8 +75,8 @@ export function Composer({ onSend, editSource, onClearEdit }: Props) {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
           }}
-          rows={1}
-          className="resize-none"
+          rows={2}
+          className="resize-none min-h-[44px] max-h-32 text-base"
           inputMode="text"
           autoComplete="off"
         />

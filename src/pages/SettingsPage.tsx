@@ -61,7 +61,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen p-4 max-w-2xl mx-auto">
+    <div className="min-h-screen px-3 py-4 sm:p-4 max-w-2xl mx-auto">
       <h1 className="text-2xl font-semibold mb-4">密钥管理</h1>
       <div className="flex justify-end mb-4">
         <Button onClick={() => setAdding(true)}><Plus className="w-4 h-4 mr-2" /> 添加自定义</Button>

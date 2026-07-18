@@ -12,7 +12,6 @@ describe('validateApiKey', () => {
     const r1 = await validateApiKey('not-a-url', 'sk-test')
     expect(r1.valid).toBe(false)
     expect(r1.error?.message).toMatch(/格式/)
-
     const r2 = await validateApiKey('ftp://example.com', 'sk-test')
     expect(r2.valid).toBe(false)
     expect(r2.error?.message).toMatch(/格式/)
@@ -24,47 +23,21 @@ describe('validateApiKey', () => {
     expect(r.error?.message).toMatch(/密钥/)
   })
 
-  it('sends Authorization bearer + valid probe body; 200+data → valid', async () => {
-    let captured: { headers: Headers; body: string } | null = null
-    server.use(http.post('https://www.packyapi.com/v1/images/generations', async ({ request }) => {
-      captured = { headers: request.headers, body: await request.text() }
-      return HttpResponse.json({ created: 1, data: [{ url: 'https://cdn/x.png' }] }, { status: 200 })
+  it('probes GET /v1/models with bearer header; 200 → valid', async () => {
+    let captured: { method: string; path: string; headers: Headers } | null = null
+    server.use(http.get('https://www.packyapi.com/v1/models', ({ request }) => {
+      captured = { method: request.method, path: new URL(request.url).pathname, headers: request.headers }
+      return HttpResponse.json({ object: 'list', data: [{ id: 'gpt-image-2' }] })
     }))
     const res = await validateApiKey('https://www.packyapi.com', 'sk-test')
     expect(res.valid).toBe(true)
+    expect(captured!.method).toBe('GET')
+    expect(captured!.path).toBe('/v1/models')
     expect(captured!.headers.get('authorization')).toBe('Bearer sk-test')
-    expect(JSON.parse(captured!.body)).toMatchObject({
-      model: 'gpt-image-2', prompt: 'a', n: 1, size: '1024x1024', quality: 'low',
-    })
   })
 
-  it('200 with b64_json data → valid', async () => {
-    server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
-      HttpResponse.json({ created: 1, data: [{ b64_json: 'aGVsbG8=' }] }, { status: 200 }),
-    ))
-    const res = await validateApiKey('https://www.packyapi.com', 'sk-test')
-    expect(res.valid).toBe(true)
-  })
-
-  it('200 with EMPTY data → INVALID (catches permissive relays)', async () => {
-    server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
-      HttpResponse.json({ created: 1, data: [] }, { status: 200 }),
-    ))
-    const res = await validateApiKey('https://www.packyapi.com', 'sk-bad')
-    expect(res.valid).toBe(false)
-    expect(res.error?.kind).toBe('content_filtered')
-  })
-
-  it('200 with malformed JSON → INVALID', async () => {
-    server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
-      new HttpResponse('not json at all', { status: 200 }),
-    ))
-    const res = await validateApiKey('https://www.packyapi.com', 'sk-test')
-    expect(res.valid).toBe(false)
-  })
-
-  it('401 → invalid', async () => {
-    server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
+  it('401 → invalid with unauthorized error', async () => {
+    server.use(http.get('https://www.packyapi.com/v1/models', () =>
       new HttpResponse('{"error":{"message":"bad key"}}', { status: 401 }),
     ))
     const res = await validateApiKey('https://www.packyapi.com', 'sk-bad')
@@ -73,7 +46,7 @@ describe('validateApiKey', () => {
   })
 
   it('403 → invalid', async () => {
-    server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
+    server.use(http.get('https://www.packyapi.com/v1/models', () =>
       new HttpResponse('', { status: 403 }),
     ))
     const res = await validateApiKey('https://www.packyapi.com', 'sk-bad')
@@ -81,26 +54,17 @@ describe('validateApiKey', () => {
     expect(res.error).toBeDefined()
   })
 
-  it('400 → invalid (not definitive proof)', async () => {
-    server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
-      new HttpResponse('{"error":{"message":"prompt required"}}', { status: 400 }),
+  it('404 (endpoint not supported) → invalid with explanatory message', async () => {
+    server.use(http.get('https://www.packyapi.com/v1/models', () =>
+      new HttpResponse('', { status: 404 }),
     ))
     const res = await validateApiKey('https://www.packyapi.com', 'sk-test')
     expect(res.valid).toBe(false)
-    expect(res.error?.kind).toBe('bad_request')
+    expect(res.error?.message).toMatch(/不支持/)
   })
 
-  it('500 → invalid', async () => {
-    server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
-      new HttpResponse('', { status: 500 }),
-    ))
-    const res = await validateApiKey('https://www.packyapi.com', 'sk-test')
-    expect(res.valid).toBe(false)
-    expect(res.error?.kind).toBe('server_error')
-  })
-
-  it('network failure (DNS / unreachable) → invalid network error', async () => {
-    server.use(http.post('https://www.packyapi.com/v1/images/generations', () => HttpResponse.error()))
+  it('network failure → invalid with network error', async () => {
+    server.use(http.get('https://www.packyapi.com/v1/models', () => HttpResponse.error()))
     const res = await validateApiKey('https://www.packyapi.com', 'k')
     expect(res.valid).toBe(false)
     expect(res.error?.kind).toBe('network')

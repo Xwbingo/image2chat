@@ -83,32 +83,37 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
                   {c.title}
                 </span>
               )}
-              <Pencil
-                className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 ml-1"
+              <button
+                type="button"
+                aria-label="重命名"
+                className="p-1.5 -m-1.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (c.id != null) {
-                    setRenamingId(c.id)
-                    setRenameValue(c.title)
-                  }
+                  if (c.id != null) { setRenamingId(c.id); setRenameValue(c.title) }
                 }}
-              />
-              <Trash2
-                className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0 ml-1"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                aria-label="删除"
+                className="p-1.5 -m-1.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
                 onClick={(e) => {
                   e.stopPropagation()
                   if (c.id != null) setConfirmDeleteId(c.id)
                 }}
-              />
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           ))
         )}
       </div>
-      <div className="p-3 border-t border-border space-y-2">
+      <div className="p-3 border-t border-border space-y-2 safe-bottom">
         <Button variant="ghost" className="w-full justify-start" onClick={() => location.assign('/settings')}>
           <Settings className="w-4 h-4 mr-2" /> 管理中转站
         </Button>
-        <p className="text-xs text-muted-foreground">当前：{activeProvider?.name ?? '未配置'}</p>
+        <p className="text-sm text-muted-foreground">当前：{activeProvider?.name ?? '未配置'}</p>
       </div>
       <Dialog open={confirmDeleteId != null} onOpenChange={(o) => !o && setConfirmDeleteId(null)}>
         <DialogContent>

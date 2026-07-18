@@ -104,7 +104,7 @@ export function HomePage() {
                 <p className="text-lg mb-4">开始一次新的创作</p>
                 <div className="flex gap-2 justify-center">
                   <Button onClick={handleNew}>新建对话</Button>
-                  <Button variant="outline" onClick={() => navigate('/settings')}>密钥管理</Button>
+                  <Button variant="outline" onClick={() => navigate('/settings')}>管理密钥</Button>
                 </div>
               </div>
             </div>
