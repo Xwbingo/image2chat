@@ -24,6 +24,10 @@ describe('parseApiError', () => {
     const e = parseApiError(new Response('{"created":1,"data":[]}', { status: 200 }))
     expect(e.kind).toBe('content_filtered')
   })
+  it('200 with non-empty data is bad_request (caller misuse)', () => {
+    const e = parseApiError(new Response('', { status: 200 }), '{"data":[{"url":"x"}]}')
+    expect(e.kind).toBe('bad_request')
+  })
 })
 
 describe('parseNetworkError', () => {
