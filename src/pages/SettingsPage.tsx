@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Trash2, Edit, Plus } from 'lucide-react'
 import { useProviders } from '@/hooks/useProviders'
 import { addProvider, updateProvider, deleteProvider } from '@/lib/repo'
+import { db } from '@/lib/db'
 
 export function SettingsPage() {
   const providers = useProviders()
@@ -19,10 +20,15 @@ export function SettingsPage() {
 
   async function saveAdd() {
     if (!name.trim() || !url.trim()) return
-    await addProvider({
-      name: name.trim(), baseUrl: url.trim(), apiKey: key.trim(),
-      type: 'custom', isBuiltIn: 0, createdAt: Date.now(),
-    })
+    const existing = await db.providers.where('baseUrl').equals(url.trim()).first()
+    if (existing?.id != null) {
+      await updateProvider(existing.id, { apiKey: key.trim(), name: name.trim() })
+    } else {
+      await addProvider({
+        name: name.trim(), baseUrl: url.trim(), apiKey: key.trim(),
+        type: 'custom', isBuiltIn: 0, createdAt: Date.now(),
+      })
+    }
     setAdding(false); setName(''); setUrl(''); setKey('')
   }
 

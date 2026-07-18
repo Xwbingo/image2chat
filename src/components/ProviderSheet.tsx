@@ -24,7 +24,11 @@ export function ProviderSheet({ open, onOpenChange, currentId, onSelect }: Props
               className="w-full justify-between"
               onClick={() => { if (p.id != null) { onSelect(p.id); onOpenChange(false) } }}
             >
-              <span>{p.name}</span>
+              <span className="flex items-center gap-2">
+                <span className={p.apiKey.trim() ? 'h-2 w-2 rounded-full bg-green-500' : 'h-2 w-2 rounded-full bg-red-500'} />
+                {p.name}
+                {!p.apiKey.trim() && <span className="text-destructive">(未配置)</span>}
+              </span>
               <Badge variant="secondary">{p.type}</Badge>
             </Button>
           ))}

@@ -68,7 +68,19 @@ export async function setConversationProvider(id: number, providerPresetId: numb
 }
 
 export async function addMessage(m: Omit<Message, 'id'>): Promise<number> {
-  return db.messages.add(m)
+  const id = await db.messages.add(m)
+  if (m.role === 'user' && m.kind === 'text_prompt' && m.prompt) {
+    const conv = await db.conversations.get(m.conversationId)
+    if (conv?.title === '新对话') {
+      await db.conversations.update(m.conversationId, {
+        title: m.prompt.trim().slice(0, 20),
+        updatedAt: Date.now(),
+      })
+    } else {
+      await db.conversations.update(m.conversationId, { updatedAt: Date.now() })
+    }
+  }
+  return id
 }
 
 export async function updateMessageStatus(id: number, status: MessageStatus, errorCode?: string): Promise<void> {

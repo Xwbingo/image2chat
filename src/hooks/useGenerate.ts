@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { db } from '@/lib/db'
-import { getProvider, addMessage, updateMessageStatus, setMessageBlobId, setMessageRemoteUrl, addImage, touchConversation } from '@/lib/repo'
+import { getProvider, addMessage, updateMessageStatus, setMessageBlobId, addImage, touchConversation } from '@/lib/repo'
 import { generateImage, editImage } from '@/lib/api/client'
 import type { ApiError } from '@/lib/api/errors'
 import { parseNetworkError } from '@/lib/api/errors'
@@ -13,6 +13,13 @@ function isApiError(e: unknown): e is ApiError {
   return typeof e === 'object' && e !== null && 'kind' in e && typeof (e as { kind: unknown }).kind === 'string'
 }
 
+function base64ToBlob(b64: string, mime = 'image/png'): Blob {
+  const bin = atob(b64)
+  const arr = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+  return new Blob([arr], { type: mime })
+}
+
 export function useGenerate() {
   return {
     generate: useCallback(async (
@@ -20,6 +27,7 @@ export function useGenerate() {
       prompt: string,
       size: string,
       editSourceMessageId?: number,
+      uploadBlob?: Blob,
     ): Promise<GenerateResult> => {
       let assistantId: number | undefined
       try {
@@ -31,7 +39,7 @@ export function useGenerate() {
         const now = Date.now()
         await addMessage({
           conversationId, role: 'user',
-          kind: editSourceMessageId != null ? 'image_edit_request' : 'text_prompt',
+          kind: editSourceMessageId != null || uploadBlob ? 'image_edit_request' : 'text_prompt',
           prompt, size, status: 'success', createdAt: now,
         })
         assistantId = await addMessage({
@@ -40,47 +48,32 @@ export function useGenerate() {
         })
         await touchConversation(conversationId)
 
-        const url = await fetchImageUrl(provider.baseUrl, provider.apiKey, prompt, size, editSourceMessageId)
-        await setMessageRemoteUrl(assistantId, url)
-        try {
-          const r = await fetch(url)
-          if (r.ok) {
-            const blob = await r.blob()
-            const bid = await addImage(blob, blob.type || 'image/png')
-            await setMessageBlobId(assistantId, bid)
-          }
-        } catch { /* keep remoteUrl as fallback */ }
+        let response
+        if (uploadBlob) {
+          response = await editImage(provider.baseUrl, provider.apiKey, prompt, uploadBlob, size)
+        } else if (editSourceMessageId != null) {
+          const srcMsg = await db.messages.get(editSourceMessageId)
+          if (!srcMsg?.imageBlobId) throw { kind: 'bad_request', message: '找不到参考图' }
+          const img = await db.images.get(srcMsg.imageBlobId)
+          if (!img) throw { kind: 'bad_request', message: '参考图丢失' }
+          response = await editImage(provider.baseUrl, provider.apiKey, prompt, img.blob, size)
+        } else {
+          response = await generateImage(provider.baseUrl, provider.apiKey, { prompt, size })
+        }
+        const b64 = response.data[0]?.b64_json
+        if (!b64) throw { kind: 'content_filtered', message: '返回为空' }
+        const blob = base64ToBlob(b64)
+        const bid = await addImage(blob, 'image/png')
+        await setMessageBlobId(assistantId, bid)
         await updateMessageStatus(assistantId, 'success')
         return { messageId: assistantId }
       } catch (e: unknown) {
         const err: ApiError = isApiError(e) ? e : parseNetworkError(e)
         if (assistantId != null) {
-          try { await updateMessageStatus(assistantId, 'failed', err.kind) } catch { /* best-effort */ }
+          try { await updateMessageStatus(assistantId, 'failed', err.kind) } catch { }
         }
         return { error: err }
       }
     }, []),
   }
-}
-
-async function fetchImageUrl(
-  baseUrl: string,
-  apiKey: string,
-  prompt: string,
-  size: string,
-  editSourceMessageId: number | undefined,
-): Promise<string> {
-  let res
-  if (editSourceMessageId != null) {
-    const srcMsg = await db.messages.get(editSourceMessageId)
-    if (!srcMsg?.imageBlobId) throw { kind: 'bad_request', message: '找不到参考图' }
-    const img = await db.images.get(srcMsg.imageBlobId)
-    if (!img) throw { kind: 'bad_request', message: '参考图丢失' }
-    res = await editImage(baseUrl, apiKey, prompt, img.blob, size)
-  } else {
-    res = await generateImage(baseUrl, apiKey, { prompt, size })
-  }
-  const url = res.data[0]?.url
-  if (!url) throw { kind: 'content_filtered', message: '返回为空' }
-  return url
 }

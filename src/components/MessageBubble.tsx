@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 interface Props {
   message: Message
   onImageClick: (blobId: number) => void
+  onRemoteClick?: (url: string) => void
   onRetry: (msgId: number) => void
   onEdit: (msgId: number) => void
 }
@@ -33,7 +34,7 @@ function isRetryable(errorCode?: string): boolean {
   return ['rate_limited', 'server_error', 'network', 'timeout', '500', '429'].includes(errorCode)
 }
 
-export function MessageBubble({ message, onImageClick, onRetry, onEdit }: Props) {
+export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, onEdit }: Props) {
   const isUser = message.role === 'user'
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
@@ -90,11 +91,11 @@ export function MessageBubble({ message, onImageClick, onRetry, onEdit }: Props)
                 src={blobUrl ?? message.remoteImageUrl!}
                 alt=""
                 className="rounded cursor-zoom-in"
-                onClick={() => message.imageBlobId != null && onImageClick(message.imageBlobId)}
+                onClick={() => message.imageBlobId != null ? onImageClick(message.imageBlobId) : message.remoteImageUrl && onRemoteClick?.(message.remoteImageUrl)}
               />
             )}
             <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="outline" onClick={() => message.imageBlobId != null && onImageClick(message.imageBlobId)}>查看</Button>
+              <Button size="sm" variant="outline" onClick={() => message.imageBlobId != null ? onImageClick(message.imageBlobId) : message.remoteImageUrl && onRemoteClick?.(message.remoteImageUrl)}>查看</Button>
               <Button size="sm" variant="outline" onClick={() => message.id != null && onEdit(message.id)}>编辑</Button>
             </div>
           </>

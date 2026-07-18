@@ -36,6 +36,16 @@ describe('messages', () => {
     expect(m?.errorCode).toBe('401')
   })
 
+  it('names a new conversation from its first user prompt', async () => {
+    const pid = await addProvider({ name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 })
+    const cid = await addConversation(pid)
+    await addMessage({ conversationId: cid, role: 'user', kind: 'text_prompt', prompt: '  a prompt that is longer than twenty chars  ', status: 'success', createdAt: 0 })
+    const conversation = await db.conversations.get(cid)
+    expect(conversation?.title).toBe('a prompt that is lon')
+    await addMessage({ conversationId: cid, role: 'user', kind: 'text_prompt', prompt: 'second prompt', status: 'success', createdAt: 1 })
+    expect((await db.conversations.get(cid))?.title).toBe('a prompt that is lon')
+  })
+
   it('binds image blob', async () => {
     const pid = await addProvider({ name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 })
     const cid = await addConversation(pid)

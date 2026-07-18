@@ -29,7 +29,7 @@ export function StatusBar({ activeConversationId }: Props) {
   return (
     <div className="border-t border-border px-3 py-2 flex gap-2 bg-background">
       <button onClick={() => setProviderOpen(true)} className="text-xs px-2 py-1 rounded hover:bg-accent">
-        当前：{activeProvider?.name ?? '未配置'} ▾
+        当前：{activeProvider?.name ?? '未配置'}{activeProvider && !activeProvider.apiKey.trim() && ' (未配置)'} ▾
       </button>
       <button onClick={() => setParamOpen(true)} className="text-xs px-2 py-1 rounded hover:bg-accent ml-auto">
         尺寸：{SIZE_LABELS[defaultSize]} ▾

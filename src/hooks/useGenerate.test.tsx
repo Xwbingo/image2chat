@@ -14,6 +14,8 @@ type Dispatcher = {
   useEffect: (cb: () => void, deps?: unknown[]) => void
   useRef: <T>(initial: T) => { current: T }
 }
+const IMAGE_B64 = 'iVBORw0KGgo='
+
 const internals = (React as unknown as {
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED: {
     ReactCurrentDispatcher: { current: Dispatcher | null }
@@ -39,10 +41,7 @@ afterAll(() => {
 
 it('success path: inserts pending msg, calls API, persists blob, marks success', async () => {
   server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
-    HttpResponse.json({ created: 1, data: [{ url: 'https://cdn/x.png' }] }),
-  ))
-  server.use(http.get('https://cdn/x.png', () =>
-    new HttpResponse(new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer, { headers: { 'content-type': 'image/png' } }),
+    HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] }),
   ))
 
   const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
@@ -56,7 +55,7 @@ it('success path: inserts pending msg, calls API, persists blob, marks success',
   const assistant = msgs.find((m) => m.role === 'assistant')!
   expect(assistant.status).toBe('success')
   expect(assistant.imageBlobId).toBeGreaterThan(0)
-  expect(assistant.remoteImageUrl).toBe('https://cdn/x.png')
+  expect(assistant.remoteImageUrl).toBeUndefined()
 })
 
 it('error path: marks message failed with errorCode', async () => {
@@ -77,10 +76,7 @@ it('error path: marks message failed with errorCode', async () => {
 
 it('edit mode calls editImage with source blob and persists new image', async () => {
   server.use(http.post('https://www.packyapi.com/v1/images/edits', () =>
-    HttpResponse.json({ created: 1, data: [{ url: 'https://cdn/y.png' }] }),
-  ))
-  server.use(http.get('https://cdn/y.png', () =>
-    new HttpResponse(new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer, { headers: { 'content-type': 'image/png' } }),
+    HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] }),
   ))
   const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
   const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
@@ -99,4 +95,20 @@ it('edit mode calls editImage with source blob and persists new image', async ()
   expect(msgs[0].kind).toBe('image_edit_request')
   expect(msgs[1].status).toBe('success')
   expect(msgs[1].imageBlobId).toBeGreaterThan(0)
+})
+
+it('upload source calls editImage without a stored source message', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/edits', () =>
+    HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] }),
+  ))
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+  const uploadBlob = new Blob([new Uint8Array([4, 5, 6])], { type: 'image/jpeg' })
+
+  const { generate } = useGenerate()
+  const res = (await generate(cid, 'edit upload', '1024x1024', undefined, uploadBlob)) as { messageId: number }
+  expect(res.messageId).toBeGreaterThan(0)
+  const assistant = (await db.messages.toArray()).find((m) => m.role === 'assistant')!
+  expect(assistant.status).toBe('success')
+  expect(assistant.imageBlobId).toBeGreaterThan(0)
 })

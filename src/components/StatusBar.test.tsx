@@ -13,6 +13,15 @@ it('renders current provider and size', async () => {
   expect(screen.getByText(/2K 横向/)).toBeInTheDocument()
 })
 
+it('shows unconfigured provider state', async () => {
+  await db.providers.add({ name: 'RunAPI', baseUrl: 'u', apiKey: '', type: 'runapi', isBuiltIn: 1, createdAt: 0 })
+  render(<StatusBar />)
+  await screen.findByText(/未配置/)
+  await userEvent.click(screen.getByText(/未配置/))
+  expect(await screen.findByText('RunAPI')).toBeInTheDocument()
+  expect(screen.getByText('(未配置)')).toBeInTheDocument()
+})
+
 it('opens param sheet on size click and selects new size', async () => {
   render(<StatusBar />)
   await userEvent.click(screen.getByText(/2K 横向/))

@@ -7,19 +7,21 @@ beforeAll(() => server.listen())
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
+const IMAGE_B64 = 'iVBORw0KGgo='
+
 describe('generateImage', () => {
   it('POSTs to /v1/images/generations with bearer header', async () => {
     let captured: { headers: Headers; body: string } | null = null
     server.use(http.post('https://www.packyapi.com/v1/images/generations', async ({ request }) => {
       captured = { headers: request.headers, body: await request.text() }
-      return HttpResponse.json({ created: 1, data: [{ url: 'https://cdn/x.png' }] })
+      return HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] })
     }))
     const res = await generateImage('https://www.packyapi.com', 'sk-test', {
       prompt: 'cat', size: '2048x1152',
     })
-    expect(res.data[0].url).toBe('https://cdn/x.png')
+    expect(res.data[0].b64_json).toBe(IMAGE_B64)
     expect(captured!.headers.get('authorization')).toBe('Bearer sk-test')
-    expect(JSON.parse(captured!.body)).toMatchObject({ prompt: 'cat', size: '2048x1152' })
+    expect(JSON.parse(captured!.body)).toMatchObject({ prompt: 'cat', size: '2048x1152', response_format: 'b64_json' })
   })
 
   it('throws ApiError with kind=unauthorized on 401', async () => {
@@ -42,14 +44,15 @@ describe('editImage', () => {
     let captured: FormData | null = null
     server.use(http.post('https://www.packyapi.com/v1/images/edits', async ({ request }) => {
       captured = await request.formData()
-      return HttpResponse.json({ created: 1, data: [{ url: 'https://cdn/y.png' }] })
+      return HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] })
     }))
     const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
     const res = await editImage('https://www.packyapi.com', 'sk-test', 'make red', blob, '1024x1024')
-    expect(res.data[0].url).toBe('https://cdn/y.png')
+    expect(res.data[0].b64_json).toBe(IMAGE_B64)
     expect(captured!.get('model')).toBe('gpt-image-2')
     expect(captured!.get('prompt')).toBe('make red')
     expect(captured!.get('size')).toBe('1024x1024')
+    expect(captured!.get('response_format')).toBe('b64_json')
     expect(captured!.get('image')).toBeInstanceOf(Blob)
   })
 })

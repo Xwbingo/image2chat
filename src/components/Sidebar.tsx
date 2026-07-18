@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { useConversations } from '@/hooks/useConversations'
 import { useProviders } from '@/hooks/useProviders'
-import { Plus, Trash2, Pencil } from 'lucide-react'
+import { Plus, Trash2, Pencil, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { deleteConversation, renameConversation } from '@/lib/repo'
 import {
@@ -104,8 +104,11 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
           ))
         )}
       </div>
-      <div className="p-3 border-t border-border text-xs text-muted-foreground">
-        当前：{activeProvider?.name ?? '未配置'}
+      <div className="p-3 border-t border-border space-y-2">
+        <Button variant="ghost" className="w-full justify-start" onClick={() => location.assign('/settings')}>
+          <Settings className="w-4 h-4 mr-2" /> 管理中转站
+        </Button>
+        <p className="text-xs text-muted-foreground">当前：{activeProvider?.name ?? '未配置'}</p>
       </div>
       <Dialog open={confirmDeleteId != null} onOpenChange={(o) => !o && setConfirmDeleteId(null)}>
         <DialogContent>

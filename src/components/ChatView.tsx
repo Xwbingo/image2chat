@@ -12,9 +12,10 @@ interface Props {
   title?: string
   onBack: () => void
   onOpenImage: (blobId: number) => void
+  onRemoteClick?: (url: string) => void
   onRetry: (msgId: number) => void
   onEdit: (msgId: number) => void
-  onSend: (prompt: string, editSourceMessageId?: number) => void
+  onSend: (prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob; size?: string }) => void
   editSource?: { messageId: number; blobId: number }
   onClearEdit?: () => void
   statusBar?: ReactNode
@@ -25,6 +26,7 @@ export function ChatView({
   title,
   onBack,
   onOpenImage,
+  onRemoteClick,
   onRetry,
   onEdit,
   onSend,
@@ -66,6 +68,7 @@ export function ChatView({
               key={m.id}
               message={m}
               onImageClick={onOpenImage}
+              onRemoteClick={onRemoteClick}
               onRetry={onRetry}
               onEdit={onEdit}
             />

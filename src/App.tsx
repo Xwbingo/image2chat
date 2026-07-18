@@ -17,8 +17,8 @@ export default function App() {
 
   useEffect(() => {
     if (!ready) return
-    const hasKey = providers.some((p) => p.apiKey.length > 0)
-    setNeedsOnboarding(!hasKey)
+    const isEmpty = providers.length === 0
+    setNeedsOnboarding(isEmpty)
   }, [ready, providers])
 
   if (!ready) return null

@@ -30,6 +30,13 @@ export function OnboardingWizard({ onDone }: Props) {
       type === 'packy' ? BUILTIN_PROVIDERS.packy.baseUrl : BUILTIN_PROVIDERS.runapi.baseUrl
     const name = type === 'custom' ? (customName.trim() || '自定义') :
       type === 'packy' ? 'Packy' : 'RunAPI'
+    if (type === 'custom') {
+      const existing = await db.providers.where('baseUrl').equals(customUrl.trim()).first()
+      if (existing?.id != null) {
+        await updateProvider(existing.id, { apiKey: key.trim(), name: customName.trim() || '自定义' })
+        setBusy(false); onDone(); return
+      }
+    }
     const existing = await db.providers.where('type').equals(type).first()
     if (existing?.id != null) {
       await updateProvider(existing.id, { apiKey: key.trim(), name, baseUrl })

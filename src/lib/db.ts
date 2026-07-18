@@ -58,6 +58,12 @@ export class Image2ChatDB extends Dexie {
       messages: '++id, conversationId, createdAt, status',
       images: '++id, createdAt',
     })
+    this.version(2).stores({
+      providers: '++id, type, createdAt, baseUrl',
+      conversations: '++id, updatedAt, providerPresetId',
+      messages: '++id, conversationId, createdAt, status',
+      images: '++id, createdAt',
+    })
   }
 }
 

@@ -8,7 +8,7 @@ it('calls onSend with trimmed prompt', async () => {
   const textarea = screen.getByPlaceholderText(/描述你想要的图像/i)
   await userEvent.type(textarea, '  a red apple  ')
   await userEvent.click(screen.getByText('发送'))
-  expect(onSend).toHaveBeenCalledWith('a red apple', undefined)
+  expect(onSend).toHaveBeenCalledWith('a red apple', { editSourceMessageId: undefined, uploadBlob: undefined })
 })
 
 it('does not call onSend for empty prompt', async () => {
@@ -23,5 +23,22 @@ it('passes editSource when in edit mode', async () => {
   render(<Composer onSend={onSend} editSource={{ messageId: 7, blobId: 99 }} onClearEdit={() => {}} />)
   await userEvent.type(screen.getByPlaceholderText(/描述你想要的图像/i), 'make blue')
   await userEvent.click(screen.getByText('发送'))
-  expect(onSend).toHaveBeenCalledWith('make blue', 7)
+  expect(onSend).toHaveBeenCalledWith('make blue', { editSourceMessageId: 7, uploadBlob: undefined })
+})
+
+it('passes an uploaded image as an edit source', async () => {
+  vi.stubGlobal('URL', {
+    createObjectURL: vi.fn().mockReturnValue('blob:preview'),
+    revokeObjectURL: vi.fn(),
+  })
+  const onSend = vi.fn()
+  const { container } = render(<Composer onSend={onSend} />)
+  const input = container.querySelector('input[type="file"]') as HTMLInputElement
+  const file = new File([new Uint8Array([1, 2, 3])], 'source.png', { type: 'image/png' })
+  await userEvent.upload(input, file)
+  expect(screen.getByAltText('upload preview')).toBeInTheDocument()
+  await userEvent.type(screen.getByPlaceholderText(/描述你想要的图像/i), 'edit this')
+  await userEvent.click(screen.getByText('发送'))
+  expect(onSend).toHaveBeenCalledWith('edit this', { editSourceMessageId: undefined, uploadBlob: file })
+  vi.unstubAllGlobals()
 })

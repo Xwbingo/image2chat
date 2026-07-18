@@ -40,14 +40,16 @@ export function HomePage() {
     navigate(`/c/${id}`)
   }
 
-  async function handleSend(prompt: string, editSourceId?: number, size?: string) {
+  async function handleSend(prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob; size?: string }) {
     if (conversationId == null) return
-    if (editSourceId != null) {
-      const srcMsg = await db.messages.get(editSourceId)
-      if (srcMsg) setEditSource({ messageId: editSourceId, blobId: srcMsg.imageBlobId! })
+    if (opts?.editSourceMessageId != null) {
+      const srcMsg = await db.messages.get(opts.editSourceMessageId)
+      if (srcMsg?.imageBlobId != null) {
+        setEditSource({ messageId: opts.editSourceMessageId, blobId: srcMsg.imageBlobId })
+      }
     }
-    const finalSize = size ?? useSession.getState().defaultSize
-    await generate(conversationId, prompt, finalSize, editSourceId)
+    const finalSize = opts?.size ?? useSession.getState().defaultSize
+    await generate(conversationId, prompt, finalSize, opts?.editSourceMessageId, opts?.uploadBlob)
   }
 
   async function handleRetry(msgId: number) {
@@ -68,7 +70,7 @@ export function HomePage() {
       const src = prevAssistant[0]
       if (src?.id != null) editSourceId = src.id
     }
-    void handleSend(m.prompt, editSourceId, m.size)
+    void handleSend(m.prompt, { editSourceMessageId: editSourceId, size: m.size })
   }
 
   function handleEdit(msgId: number) {
@@ -77,6 +79,10 @@ export function HomePage() {
         setEditSource({ messageId: msgId, blobId: m.imageBlobId })
       }
     })
+  }
+
+  function handleRemoteImageClick(url: string) {
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -96,7 +102,10 @@ export function HomePage() {
             <div className="flex-1 flex items-center justify-center text-center p-8">
               <div>
                 <p className="text-lg mb-4">开始一次新的创作</p>
-                <Button onClick={handleNew}>新建对话</Button>
+                <div className="flex gap-2 justify-center">
+                  <Button onClick={handleNew}>新建对话</Button>
+                  <Button variant="outline" onClick={() => navigate('/settings')}>管理中转站</Button>
+                </div>
               </div>
             </div>
           ) : (
@@ -104,6 +113,7 @@ export function HomePage() {
               conversationId={conversationId}
               onBack={() => navigate('/')}
               onOpenImage={(blobId) => setViewerBlobId(blobId)}
+              onRemoteClick={handleRemoteImageClick}
               onRetry={handleRetry}
               onEdit={handleEdit}
               onSend={handleSend}

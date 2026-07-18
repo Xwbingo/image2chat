@@ -45,6 +45,22 @@ it('renders failed state with retry button', async () => {
   expect(onRetry).toHaveBeenCalledWith(5)
 })
 
+it('uses remote fallback for image actions when blob is missing', async () => {
+  const onRemoteClick = vi.fn()
+  const { container } = render(
+    <MessageBubble
+      message={{ id: 6, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'success', remoteImageUrl: 'https://cdn/image.png', createdAt: 0 }}
+      onImageClick={() => {}}
+      onRemoteClick={onRemoteClick}
+      onRetry={() => {}}
+      onEdit={() => {}}
+    />,
+  )
+  await userEvent.click(container.querySelector('img')!)
+  await userEvent.click(screen.getByText('查看'))
+  expect(onRemoteClick).toHaveBeenCalledTimes(2)
+})
+
 it('renders 去设置 button for 401', () => {
   render(
     <MessageBubble
