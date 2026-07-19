@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Send, Paperclip, X, Plus } from 'lucide-react'
@@ -29,7 +29,6 @@ export function Composer({
   const [text, setText] = useState('')
   const [thumbUrls, setThumbUrls] = useState<Map<number, string>>(new Map())
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -183,15 +182,14 @@ export function Composer({
             )
           })}
           {refs.length < MAX_REFS && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="shrink-0 w-16 h-16 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary"
+            <label
+              htmlFor="composer-file-input"
+              className="shrink-0 w-16 h-16 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary cursor-pointer"
               aria-label="添加参考图"
               data-testid="add-ref-empty-slot"
             >
               <Plus className="w-5 h-5" />
-            </button>
+            </label>
           )}
         </div>
       )}
@@ -201,7 +199,6 @@ export function Composer({
         </div>
       )}
       <input
-        ref={fileInputRef}
         id="composer-file-input"
         type="file"
         accept="image/*"
@@ -210,16 +207,15 @@ export function Composer({
         onChange={handleFile}
       />
       <div className="flex gap-2 items-end">
-        <Button
-          size="icon"
-          variant="outline"
-          onClick={() => fileInputRef.current?.click()}
+        <label
+          htmlFor="composer-file-input"
+          className="inline-flex items-center justify-center h-11 w-11 shrink-0 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="上传参考图（可多选）"
-          className="h-11 w-11 shrink-0"
-          disabled={refs.length >= MAX_REFS}
+          data-testid="upload-button"
+          style={refs.length >= MAX_REFS ? { opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' } : undefined}
         >
           <Paperclip className="w-4 h-4" />
-        </Button>
+        </label>
         <Textarea
           placeholder={refs.length > 0 ? `基于 ${refs.length} 张参考图生成...` : '描述你想要的图像…'}
           value={text}
