@@ -10,3 +10,4 @@ vite.config.js
 .DS_Store
 /.idea/
 docs/superpowers/plans/*-post-review-fixes.md
+docs/
