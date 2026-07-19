@@ -183,12 +183,18 @@ export function Composer({
           })}
           {refs.length < MAX_REFS && (
             <label
-              htmlFor="composer-file-input"
               className="shrink-0 w-16 h-16 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary cursor-pointer"
               aria-label="添加参考图"
               data-testid="add-ref-empty-slot"
             >
               <Plus className="w-5 h-5" />
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFile}
+              />
             </label>
           )}
         </div>
@@ -198,23 +204,22 @@ export function Composer({
           编辑模式：添加 1-{MAX_REFS} 张参考图
         </div>
       )}
-      <input
-        id="composer-file-input"
-        type="file"
-        accept="image/*"
-        multiple
-        className="sr-only"
-        onChange={handleFile}
-      />
       <div className="flex gap-2 items-end">
         <label
-          htmlFor="composer-file-input"
-          className="inline-flex items-center justify-center h-11 w-11 shrink-0 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center justify-center h-11 w-11 shrink-0 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground cursor-pointer"
           aria-label="上传参考图（可多选）"
           data-testid="upload-button"
-          style={refs.length >= MAX_REFS ? { opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' } : undefined}
+          aria-disabled={refs.length >= MAX_REFS}
+          style={{ opacity: refs.length >= MAX_REFS ? 0.5 : 1, pointerEvents: refs.length >= MAX_REFS ? 'none' : 'auto' }}
         >
           <Paperclip className="w-4 h-4" />
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFile}
+          />
         </label>
         <Textarea
           placeholder={refs.length > 0 ? `基于 ${refs.length} 张参考图生成...` : '描述你想要的图像…'}

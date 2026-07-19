@@ -150,7 +150,7 @@ it('blocks 4th add: shows toast when file is dropped while already at 3 refs', a
   const { container, onAddLocal } = setup({ refs })
   const input = container.querySelector('input[type="file"]') as HTMLInputElement
   const extra = new File([new Uint8Array([99])], 'extra.png', { type: 'image/png' })
-  await userEvent.upload(input, extra)
+  fireEvent.change(input, { target: { files: [extra] } })
   expect(onAddLocal).not.toHaveBeenCalled()
 })
 
