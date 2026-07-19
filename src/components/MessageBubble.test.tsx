@@ -18,6 +18,25 @@ it('renders user text prompt', () => {
   expect(screen.getByText('hello')).toBeInTheDocument()
 })
 
+it('shows the referenced image in an edit request bubble', async () => {
+  const blobId = await db.images.add({
+    blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }),
+    mimeType: 'image/png',
+    createdAt: 0,
+  })
+  render(
+    <MessageBubble
+      message={{ id: 7, conversationId: 1, role: 'user', kind: 'image_edit_request', prompt: 'make it blue', imageBlobId: blobId, status: 'success', createdAt: 0 }}
+      onImageClick={() => {}}
+      onRetry={() => {}}
+      onEdit={() => {}}
+    />,
+  )
+
+  expect(await screen.findByAltText('引用图')).toBeInTheDocument()
+  expect(screen.getByText('引用此图编辑')).toBeInTheDocument()
+})
+
 it('renders generating placeholder for assistant with status generating', () => {
   render(
     <MessageBubble

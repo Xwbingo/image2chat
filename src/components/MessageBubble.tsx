@@ -52,7 +52,7 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
       cancelled = true
       if (currentUrl) revokeObjectURLSafe(currentUrl)
     }
-  }, [message.imageBlobId, message.status])
+  }, [message.imageBlobId, message.status, message.kind])
 
   useEffect(() => {
     if (message.status !== 'generating') return
@@ -65,7 +65,18 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
       <div className="flex justify-end mb-3">
         <div className="max-w-[70%] bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2">
           {message.prompt && <p className="whitespace-pre-wrap break-words">{message.prompt}</p>}
-          {message.imageBlobId && blobUrl && <img src={blobUrl} alt="" className="mt-2 rounded max-w-full" />}
+          {message.kind === 'image_edit_request' && message.imageBlobId && blobUrl && (
+            <div className="mt-2 mb-1 flex items-center gap-2 text-xs opacity-90">
+              <img src={blobUrl} alt="引用图" className="h-12 w-12 rounded object-cover border border-primary-foreground/20" />
+              <span>引用此图编辑</span>
+            </div>
+          )}
+          {message.kind === 'image_edit_request' && message.imageBlobId && !blobUrl && (
+            <div className="mt-2 mb-1 text-xs opacity-70">引用此图编辑</div>
+          )}
+          {message.imageBlobId && message.kind !== 'image_edit_request' && blobUrl && (
+            <img src={blobUrl} alt="" className="mt-2 rounded max-w-full" />
+          )}
         </div>
       </div>
     )

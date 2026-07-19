@@ -91,7 +91,8 @@ export async function setConversationProvider(id: number, providerPresetId: numb
 
 export async function addMessage(m: Omit<Message, 'id'>): Promise<number> {
   const id = await db.messages.add(m)
-  if (m.role === 'user' && m.kind === 'text_prompt' && m.prompt) {
+  // Auto-name conversation from first user prompt
+  if (m.role === 'user' && (m.kind === 'text_prompt' || m.kind === 'image_edit_request') && m.prompt) {
     const conv = await db.conversations.get(m.conversationId)
     if (conv?.title === '新对话') {
       await db.conversations.update(m.conversationId, {

@@ -18,6 +18,20 @@ it('does not call onSend for empty prompt', async () => {
   expect(onSend).not.toHaveBeenCalled()
 })
 
+it('uses mobile-safe composer sizing and bottom padding', () => {
+  render(<Composer onSend={() => {}} />)
+  const textarea = screen.getByPlaceholderText(/描述你想要的图像/i)
+  const composer = textarea.parentElement?.parentElement
+  const sendButton = screen.getByRole('button', { name: '发送' })
+  const uploadButton = screen.getByRole('button', { name: '上传图片' })
+
+  expect(textarea).toHaveAttribute('rows', '1')
+  expect(composer).toHaveStyle({ paddingBottom: 'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem))' })
+  expect(sendButton).toHaveClass('h-11', 'px-4', 'shrink-0')
+  expect(uploadButton).toHaveClass('h-11', 'w-11', 'shrink-0')
+  expect(screen.getByText('发送')).toHaveClass('hidden', 'sm:inline')
+})
+
 it('passes editSource when in edit mode', async () => {
   const onSend = vi.fn()
   render(<Composer onSend={onSend} editSource={{ messageId: 7, blobId: 99 }} onClearEdit={() => {}} />)

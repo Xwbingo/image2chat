@@ -63,35 +63,37 @@ export function HomePage() {
 
   async function handleRetry(msgId: number) {
     const m = await db.messages.get(msgId)
-    if (!m) {
-      console.warn('[retry] message not found', msgId)
-      return
-    }
-    if (!m.prompt) {
-      console.warn('[retry] message has no prompt', m)
-      return
-    }
-    if (m.role !== 'assistant') {
-      console.warn('[retry] message is not assistant', m)
-      return
-    }
-    console.info('[retry] retrying message', msgId, { prompt: m.prompt.slice(0, 30), size: m.size })
-    let editSourceId: number | undefined
-    const userMsgs = await db.messages
+    if (!m) { console.warn('[retry] message not found', msgId); return }
+    if (m.role !== 'assistant') { console.warn('[retry] not an assistant message', m); return }
+
+    // Find the most recent user message BEFORE this assistant message
+    const prevUser = await db.messages
       .where('conversationId').equals(m.conversationId)
       .and((x) => x.role === 'user' && x.createdAt < m.createdAt)
+      .reverse()
       .sortBy('createdAt')
-    const lastUser = userMsgs[userMsgs.length - 1]
-    if (lastUser?.kind === 'image_edit_request') {
-      const prevAssistant = await db.messages
+    const lastUser = prevUser[0]
+    if (!lastUser?.prompt) {
+      console.warn('[retry] no preceding user message with prompt', { m, lastUser })
+      toast({ variant: 'destructive', title: '无法重试', description: '找不到对应的提示词' })
+      return
+    }
+
+    // If the user message was an edit, find the source image message
+    let editSourceId: number | undefined
+    if (lastUser.kind === 'image_edit_request') {
+      // The source is the assistant image BEFORE the user edit
+      const srcAssistant = await db.messages
         .where('conversationId').equals(m.conversationId)
-        .and((x) => x.role === 'assistant' && x.createdAt < lastUser.createdAt)
+        .and((x) => x.role === 'assistant' && x.createdAt < lastUser.createdAt && x.imageBlobId != null)
         .reverse()
         .sortBy('createdAt')
-      const src = prevAssistant[0]
+      const src = srcAssistant[0]
       if (src?.id != null) editSourceId = src.id
     }
-    void handleSend(m.prompt, { editSourceMessageId: editSourceId, size: m.size })
+
+    console.info('[retry] retrying', { prompt: lastUser.prompt.slice(0, 30), size: m.size, editSourceId })
+    void handleSend(lastUser.prompt, { editSourceMessageId: editSourceId, size: m.size })
   }
 
   function handleEdit(msgId: number) {
@@ -107,13 +109,13 @@ export function HomePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground safe-top safe-bottom">
+    <div className="h-[100dvh] flex flex-col bg-background text-foreground safe-top">
       <OfflineBanner />
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden md:block h-full">
           <Sidebar activeId={conversationId} onSelect={(id) => navigate(`/c/${id}`)} onNew={handleNew} />
         </div>
-        <main className="flex-1 flex flex-col">
+        <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <div className="md:hidden border-b border-border p-2">
             <Button size="icon" variant="ghost" onClick={() => setDrawerOpen(true)}>
               <Menu className="w-5 h-5" />

@@ -22,6 +22,16 @@ it('shows unconfigured provider state', async () => {
   expect(screen.getByText('(未配置)')).toBeInTheDocument()
 })
 
+it('makes the 4K tier reachable through a scrollable sheet', async () => {
+  render(<StatusBar />)
+  await userEvent.click(screen.getByText(/2K 横向/))
+  const dialog = screen.getByRole('dialog')
+
+  expect(dialog).toHaveClass('max-h-[85vh]', 'overflow-y-auto')
+  expect(screen.getByText('4K', { exact: true })).toHaveClass('sticky', 'top-0', 'bg-background')
+  expect(screen.getByText('4K 横向')).toBeInTheDocument()
+})
+
 it('opens param sheet on size click and selects new size', async () => {
   render(<StatusBar />)
   await userEvent.click(screen.getByText(/2K 横向/))

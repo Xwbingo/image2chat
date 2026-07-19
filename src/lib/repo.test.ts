@@ -71,6 +71,13 @@ describe('messages', () => {
     expect((await db.conversations.get(cid))?.title).toBe('a prompt that is lon')
   })
 
+  it('names a new conversation from its first image edit request', async () => {
+    const pid = await addProvider({ name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 })
+    const cid = await addConversation(pid)
+    await addMessage({ conversationId: cid, role: 'user', kind: 'image_edit_request', prompt: '  make this image warmer  ', status: 'success', createdAt: 0 })
+    expect((await db.conversations.get(cid))?.title).toBe('make this image warm')
+  })
+
   it('binds image blob', async () => {
     const pid = await addProvider({ name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 })
     const cid = await addConversation(pid)
