@@ -13,6 +13,7 @@ import { useSession } from '@/stores/useSession'
 import { addConversation } from '@/lib/repo'
 import { db } from '@/lib/db'
 import { useGenerate } from '@/hooks/useGenerate'
+import { useToast } from '@/components/ui/use-toast'
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -21,6 +22,7 @@ export function HomePage() {
   const providers = useProviders()
   const { setActiveProviderId } = useSession()
   const { generate } = useGenerate()
+  const { toast } = useToast()
   const [editSource, setEditSource] = useState<{ messageId: number; blobId: number } | undefined>()
   const [viewerBlobId, setViewerBlobId] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -49,12 +51,31 @@ export function HomePage() {
       }
     }
     const finalSize = opts?.size ?? useSession.getState().defaultSize
-    await generate(conversationId, prompt, finalSize, opts?.editSourceMessageId, opts?.uploadBlob)
+    const result = await generate(conversationId, prompt, finalSize, opts?.editSourceMessageId, opts?.uploadBlob)
+    if ('error' in result) {
+      toast({
+        variant: 'destructive',
+        title: '生成失败',
+        description: result.error.message,
+      })
+    }
   }
 
   async function handleRetry(msgId: number) {
     const m = await db.messages.get(msgId)
-    if (!m?.prompt || m.role !== 'assistant') return
+    if (!m) {
+      console.warn('[retry] message not found', msgId)
+      return
+    }
+    if (!m.prompt) {
+      console.warn('[retry] message has no prompt', m)
+      return
+    }
+    if (m.role !== 'assistant') {
+      console.warn('[retry] message is not assistant', m)
+      return
+    }
+    console.info('[retry] retrying message', msgId, { prompt: m.prompt.slice(0, 30), size: m.size })
     let editSourceId: number | undefined
     const userMsgs = await db.messages
       .where('conversationId').equals(m.conversationId)

@@ -51,8 +51,9 @@
   /* but on small elements like badges, allow shrinking */
   .text-xs input, .text-xs textarea, .text-xs select { font-size: 12px; }
 
-  .safe-top { padding-top: env(safe-area-inset-top); }
-  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-  .safe-left { padding-left: env(safe-area-inset-left); }
-  .safe-right { padding-right: env(safe-area-inset-right); }
+  /* PWA safe areas — with sensible fallback for devices without env() support */
+  .safe-top    { padding-top:    max(env(safe-area-inset-top),    0.5rem); }
+  .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+  .safe-left   { padding-left:   max(env(safe-area-inset-left),   0.5rem); }
+  .safe-right  { padding-right:  max(env(safe-area-inset-right),  0.5rem); }
 }

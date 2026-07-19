@@ -50,7 +50,7 @@ export function Composer({ onSend, editSource, onClearEdit }: Props) {
   }
 
   return (
-    <div className="border-t border-border p-3 bg-background safe-bottom">
+    <div className="border-t border-border bg-background pt-3 px-3 safe-bottom" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
       {editSource && (
         <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="bg-accent px-2 py-1 rounded">编辑模式</span>

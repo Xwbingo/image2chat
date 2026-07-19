@@ -2,7 +2,7 @@ import type { GenerateRequest, GenerateResponse } from './types'
 import { parseApiError, parseNetworkError } from './errors'
 import { applyCorsProxy } from './proxy'
 
-const TIMEOUT_MS = 120_000
+const TIMEOUT_MS = 600_000   // 10 minutes — for large 4K images
 
 function withTimeout(ms: number, signal?: AbortSignal): AbortSignal {
   const ctrl = new AbortController()
