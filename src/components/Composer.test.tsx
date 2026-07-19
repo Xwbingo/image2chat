@@ -152,17 +152,6 @@ it('upload button is disabled and not clickable when at MAX_REFS', async () => {
   expect(btn).toBeDisabled()
 })
 
-it('multi-file upload: passing 2 files calls onAddLocal for each within MAX_REFS', async () => {
-  const { onAddLocal } = setup()
-  const input = screen.getByTestId('file-input') as HTMLInputElement
-  const file1 = new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })
-  const file2 = new File([new Uint8Array([2])], 'b.png', { type: 'image/png' })
-  await userEvent.upload(input, [file1, file2])
-  expect(onAddLocal).toHaveBeenCalledTimes(2)
-  expect(onAddLocal).toHaveBeenNthCalledWith(1, file1)
-  expect(onAddLocal).toHaveBeenNthCalledWith(2, file2)
-})
-
 it('empty-slot button in refs strip also triggers .click() on the hidden file input', async () => {
   const id = await db.images.add({
     blob: new Blob([new Uint8Array([1])], { type: 'image/png' }),

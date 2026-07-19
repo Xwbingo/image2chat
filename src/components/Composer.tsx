@@ -67,27 +67,18 @@ export function Composer({
   }, [thumbUrls])
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+    const file = e.target.files?.[0]
+    if (!file) return
     e.target.value = ''
-    const remaining = MAX_REFS - refs.length
-    if (remaining <= 0) {
+    if (refs.length >= MAX_REFS) {
       toast({ variant: 'destructive', title: '已达上限', description: `最多 ${MAX_REFS} 张参考图` })
       return
     }
-    const fileArr = Array.from(files)
-    const toAdd = fileArr.slice(0, remaining)
-    const skipped = fileArr.length - toAdd.length
-    if (skipped > 0) {
-      toast({ title: `已添加 ${toAdd.length} 张`, description: `跳过 ${skipped} 张（最多 ${MAX_REFS} 张）` })
+    if (file.size > MAX_FILE_SIZE) {
+      toast({ variant: 'destructive', title: '图片过大', description: `${file.name} 超过 10MB` })
+      return
     }
-    toAdd.forEach((file) => {
-      if (file.size > MAX_FILE_SIZE) {
-        toast({ variant: 'destructive', title: '图片过大', description: `${file.name} 超过 10MB` })
-        return
-      }
-      onAddLocal(file)
-    })
+    onAddLocal(file)
   }
 
   function handleSend() {
@@ -204,7 +195,6 @@ export function Composer({
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        multiple
         className="hidden"
         onChange={handleFile}
         data-testid="file-input"
