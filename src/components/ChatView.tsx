@@ -145,6 +145,7 @@ export function ChatView({
           transform: `translateY(-${bottomInset ?? 0}px)`,
           zIndex: 40,
         }}
+        className="flex flex-col bg-background border-t border-border"
       >
         {statusBar}
         <Composer
@@ -154,7 +155,6 @@ export function ChatView({
           onReorderRefs={onReorderRefs}
           onClearRefs={onClearRefs}
           onSend={onSend}
-          bottomInset={bottomInset}
         />
       </div>
     </div>

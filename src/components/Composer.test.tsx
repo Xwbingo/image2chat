@@ -41,22 +41,20 @@ it('does not call onSend for empty prompt', async () => {
   expect(onSend).not.toHaveBeenCalled()
 })
 
-it('uses mobile-safe composer sizing (pinned to viewport)', () => {
+it('uses mobile-safe composer sizing (pinning is handled by ChatView container)', () => {
   const { container } = setup()
   const composerOuter = container.firstChild as HTMLElement
-  expect(composerOuter).toHaveStyle({
-    position: 'fixed',
-    left: '0px',
-    right: '0px',
-    bottom: '0px',
-  })
+  expect(composerOuter).not.toHaveStyle({ position: 'fixed' })
   expect(screen.getByText('发送')).toHaveClass('hidden', 'sm:inline')
 })
 
-it('applies bottomInset translateY for keyboard avoidance', () => {
-  const { container } = setup({ bottomInset: 56 })
+it('does not accept bottomInset (pinning is the parent container\'s job)', () => {
+  const { container } = setup({
+    // @ts-expect-error - bottomInset was removed; ChatView owns keyboard avoidance now.
+    bottomInset: 56,
+  })
   const composerOuter = container.firstChild as HTMLElement
-  expect(composerOuter).toHaveStyle({ transform: 'translateY(-56px)' })
+  expect(composerOuter.style.transform).toBe('')
 })
 
 it('renders the empty hint when no refs', () => {

@@ -16,7 +16,6 @@ interface Props {
   onReorderRefs: (fromIndex: number, toIndex: number) => void
   onClearRefs: () => void
   onSend: (prompt: string, refs: ImageRef[]) => void
-  bottomInset?: number
 }
 
 export function Composer({
@@ -26,7 +25,6 @@ export function Composer({
   onReorderRefs,
   onClearRefs,
   onSend,
-  bottomInset = 0,
 }: Props) {
   const [text, setText] = useState('')
   const [thumbUrls, setThumbUrls] = useState<Map<number, string>>(new Map())
@@ -126,16 +124,10 @@ export function Composer({
   return (
     <div
       style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        transform: `translateY(-${bottomInset}px)`,
         backgroundColor: 'hsl(var(--background))',
         borderTop: '1px solid hsl(var(--border))',
         padding: '0.75rem 0.75rem',
         paddingBottom: `calc(0.75rem + env(safe-area-inset-bottom, 0px))`,
-        zIndex: 50,
       }}
       className="md:left-64"
     >
