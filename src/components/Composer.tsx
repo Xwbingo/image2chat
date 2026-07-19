@@ -8,11 +8,12 @@ const MAX_PROMPT_LEN = 4000
 
 interface Props {
   onSend: (prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob }) => void
-  editSource?: { messageId: number; blobId: number }
+  editSource?: { messageId: number; blobId: number; preview?: string }
   onClearEdit?: () => void
+  bottomInset?: number
 }
 
-export function Composer({ onSend, editSource, onClearEdit }: Props) {
+export function Composer({ onSend, editSource, onClearEdit, bottomInset = 0 }: Props) {
   const [text, setText] = useState('')
   const [upload, setUpload] = useState<{ blob: Blob; preview: string } | null>(null)
   const { toast } = useToast()
@@ -30,32 +31,47 @@ export function Composer({ onSend, editSource, onClearEdit }: Props) {
     setUpload(null)
   }
 
+  const showIndicator = editSource != null || upload != null
+  const previewUrl = upload?.preview ?? editSource?.preview ?? null
+  const indicatorLabel = upload != null
+    ? '正在基于本地图片编辑'
+    : editSource != null
+      ? '正在编辑引用图'
+      : ''
+
   return (
     <div
       className="border-t border-border bg-background px-3 pt-3"
       style={{
-        // Reliable safe-area + browser-chrome fallback (Android Chrome bottom nav = ~48dp)
-        paddingBottom: 'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem))',
+        paddingBottom: `max(0.75rem, ${bottomInset}px)`,
       }}
     >
-      {editSource && (
-        <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="bg-accent px-2 py-1 rounded">编辑模式</span>
-          <button onClick={onClearEdit} aria-label="取消编辑" className="hover:text-foreground p-1 -m-1">
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      )}
-      {upload && (
-        <div className="mb-2 relative inline-block">
-          <img src={upload.preview} alt="upload preview" className="h-16 rounded border border-border" />
-          <button
-            onClick={() => { URL.revokeObjectURL(upload.preview); setUpload(null) }}
-            aria-label="移除图片"
-            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+      {showIndicator && (
+        <div className="flex items-center gap-3 mb-3 p-2 bg-accent rounded-lg">
+          {previewUrl && (
+            <img
+              src={previewUrl}
+              alt="引用图"
+              className="w-14 h-14 rounded object-cover border border-border shrink-0"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium">{indicatorLabel}</div>
+            <div className="text-xs text-muted-foreground">点击 × 取消编辑模式</div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              if (upload) URL.revokeObjectURL(upload.preview)
+              setUpload(null)
+              onClearEdit?.()
+            }}
+            aria-label="取消编辑"
+            className="h-11 w-11 shrink-0"
           >
-            <X className="w-3 h-3" />
-          </button>
+            <X className="w-4 h-4" />
+          </Button>
         </div>
       )}
       <div className="flex gap-2 items-end">

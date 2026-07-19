@@ -16,8 +16,9 @@ interface Props {
   onRetry: (msgId: number) => void
   onEdit: (msgId: number) => void
   onSend: (prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob; size?: string }) => void
-  editSource?: { messageId: number; blobId: number }
+  editSource?: { messageId: number; blobId: number; preview?: string }
   onClearEdit?: () => void
+  bottomInset?: number
   statusBar?: ReactNode
 }
 
@@ -32,6 +33,7 @@ export function ChatView({
   onSend,
   editSource,
   onClearEdit,
+  bottomInset,
   statusBar,
 }: Props) {
   const messages = useMessages(conversationId)
@@ -76,7 +78,7 @@ export function ChatView({
         )}
       </div>
       {statusBar}
-      <Composer onSend={onSend} editSource={editSource} onClearEdit={onClearEdit} />
+      <Composer onSend={onSend} editSource={editSource} onClearEdit={onClearEdit} bottomInset={bottomInset} />
     </div>
   )
 }

@@ -23,9 +23,10 @@ export function HomePage() {
   const { setActiveProviderId } = useSession()
   const { generate } = useGenerate()
   const { toast } = useToast()
-  const [editSource, setEditSource] = useState<{ messageId: number; blobId: number } | undefined>()
+  const [editSource, setEditSource] = useState<{ messageId: number; blobId: number; preview?: string } | undefined>()
   const [viewerBlobId, setViewerBlobId] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [bottomInset, setBottomInset] = useState(0)
 
   useEffect(() => {
     if (providers.length > 0) {
@@ -33,6 +34,35 @@ export function HomePage() {
       if (current == null) setActiveProviderId(providers[0].id!)
     }
   }, [providers.length])
+
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const hidden = window.innerHeight - vv.height
+      setBottomInset(Math.max(0, hidden))
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
+
+  function clearEdit() {
+    if (editSource?.preview) URL.revokeObjectURL(editSource.preview)
+    setEditSource(undefined)
+  }
+
+  async function loadEditSource(msgId: number, blobId: number) {
+    const img = await db.images.get(blobId)
+    if (!img) return
+    if (editSource?.preview) URL.revokeObjectURL(editSource.preview)
+    const preview = URL.createObjectURL(img.blob)
+    setEditSource({ messageId: msgId, blobId: blobId, preview })
+  }
 
   async function handleNew() {
     const pid = useSession.getState().activeProviderId ?? providers[0]?.id
@@ -44,10 +74,10 @@ export function HomePage() {
 
   async function handleSend(prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob; size?: string }) {
     if (conversationId == null) return
-    if (opts?.editSourceMessageId != null) {
+    if (opts?.editSourceMessageId != null && opts.uploadBlob == null) {
       const srcMsg = await db.messages.get(opts.editSourceMessageId)
       if (srcMsg?.imageBlobId != null) {
-        setEditSource({ messageId: opts.editSourceMessageId, blobId: srcMsg.imageBlobId })
+        void loadEditSource(opts.editSourceMessageId, srcMsg.imageBlobId)
       }
     }
     const finalSize = opts?.size ?? useSession.getState().defaultSize
@@ -104,7 +134,7 @@ export function HomePage() {
   function handleEdit(msgId: number) {
     db.messages.get(msgId).then((m) => {
       if (m?.imageBlobId != null) {
-        setEditSource({ messageId: msgId, blobId: m.imageBlobId })
+        void loadEditSource(msgId, m.imageBlobId)
       }
     })
   }
@@ -146,7 +176,8 @@ export function HomePage() {
               onEdit={handleEdit}
               onSend={handleSend}
               editSource={editSource}
-              onClearEdit={() => setEditSource(undefined)}
+              onClearEdit={clearEdit}
+              bottomInset={bottomInset}
               statusBar={<StatusBar activeConversationId={conversationId} />}
             />
           )}
