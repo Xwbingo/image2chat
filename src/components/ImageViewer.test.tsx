@@ -15,3 +15,12 @@ it('renders image after loading blob', async () => {
   render(<ImageViewer blobId={id} onClose={() => {}} />)
   await waitFor(() => expect(screen.getByRole('img')).toBeInTheDocument())
 })
+
+it('image is constrained to viewport (object-contain)', async () => {
+  const id = await db.images.add({ blob: new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' }), mimeType: 'image/png', createdAt: 0 })
+  render(<ImageViewer blobId={id} onClose={() => {}} />)
+  await waitFor(() => {
+    const img = screen.getByRole('img')
+    expect(img.className).toContain('object-contain')
+  })
+})

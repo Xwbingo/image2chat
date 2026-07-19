@@ -37,9 +37,22 @@ export function ImageViewer({ blobId, prompt, onClose }: Props) {
 
   return (
     <Dialog open={true} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl bg-background p-2">
-        {url && <img src={url} alt="result" className="w-full h-auto rounded" />}
-        <div className="flex gap-2 p-2">
+      <DialogContent className="max-w-3xl bg-background p-2 max-h-[90vh] flex flex-col">
+        <div
+          className="flex-1 overflow-auto flex items-center justify-center bg-muted/30 rounded min-h-0"
+          style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
+        >
+          {url && (
+            <img
+              src={url}
+              alt="result"
+              className="max-w-full max-h-full object-contain select-none"
+              draggable={false}
+              style={{ cursor: 'grab', touchAction: 'pinch-zoom' }}
+            />
+          )}
+        </div>
+        <div className="flex gap-2 p-2 shrink-0">
           <Button onClick={async () => {
             if (!url) return
             const r = await fetch(url)
