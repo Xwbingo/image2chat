@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useConversations } from '@/hooks/useConversations'
 import { useProviders } from '@/hooks/useProviders'
-import { Plus, Trash2, Pencil, Settings } from 'lucide-react'
+import { Plus, Trash2, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { deleteConversation, renameConversation } from '@/lib/repo'
+import { deleteConversation } from '@/lib/repo'
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
@@ -19,22 +19,7 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
   const conversations = useConversations()
   const providers = useProviders()
   const activeProvider = providers[0]
-  const [renamingId, setRenamingId] = useState<number | null>(null)
-  const [renameValue, setRenameValue] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (renamingId != null) inputRef.current?.focus()
-  }, [renamingId])
-
-  function commitRename() {
-    if (renamingId == null) return
-    const v = renameValue.trim()
-    if (v) void renameConversation(renamingId, v)
-    setRenamingId(null)
-    setRenameValue('')
-  }
 
   return (
     <aside className="w-64 border-r border-border flex flex-col h-full bg-card">
@@ -56,44 +41,7 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
               )}
               onClick={() => c.id != null && onSelect(c.id)}
             >
-              {renamingId === c.id ? (
-                <input
-                  ref={inputRef}
-                  className="flex-1 text-sm bg-background border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-ring"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onBlur={commitRename}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); commitRename() }
-                    else if (e.key === 'Escape') { setRenamingId(null); setRenameValue('') }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <span
-                  className="truncate text-sm flex-1"
-                  onDoubleClick={(e) => {
-                    e.stopPropagation()
-                    if (c.id != null) {
-                      setRenamingId(c.id)
-                      setRenameValue(c.title)
-                    }
-                  }}
-                >
-                  {c.title}
-                </span>
-              )}
-              <button
-                type="button"
-                aria-label="重命名"
-                className="p-1.5 -m-1.5 opacity-40 hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (c.id != null) { setRenamingId(c.id); setRenameValue(c.title) }
-                }}
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
+              <span className="truncate text-sm flex-1">{c.title}</span>
               <button
                 type="button"
                 aria-label="删除"
