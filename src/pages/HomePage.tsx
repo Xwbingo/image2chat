@@ -93,6 +93,11 @@ export function HomePage() {
     }
 
     console.info('[retry] retrying', { prompt: lastUser.prompt.slice(0, 30), size: m.size, editSourceId })
+    if (editSourceId != null) {
+      toast({ title: '正在以编辑模式重试', description: '基于原图重新生成' })
+    } else {
+      toast({ title: '正在重新生成', description: '使用相同 prompt' })
+    }
     void handleSend(lastUser.prompt, { editSourceMessageId: editSourceId, size: m.size })
   }
 
