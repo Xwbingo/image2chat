@@ -102,7 +102,22 @@ export function HomePage() {
   async function handleNew() {
     const pid = useSession.getState().activeProviderId ?? providers[0]?.id
     if (!pid) return
-    const id = await addConversation(pid)
+
+    let id: number | undefined
+    const emptyConvs = await db.conversations.where('title').equals('新对话').toArray()
+    for (const conv of emptyConvs) {
+      if (conv.id == null) continue
+      const msgCount = await db.messages.where('conversationId').equals(conv.id).count()
+      if (msgCount === 0) {
+        id = conv.id
+        break
+      }
+    }
+
+    if (id == null) {
+      id = await addConversation(pid)
+    }
+
     setDrawerOpen(false)
     navigate(`/c/${id}`)
   }

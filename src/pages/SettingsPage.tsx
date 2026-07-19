@@ -126,7 +126,7 @@ export function SettingsPage() {
       </div>
 
       <Dialog open={editing != null} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent>
+        <DialogContent showCloseButton={false}>
           <DialogHeader><DialogTitle>编辑密钥</DialogTitle></DialogHeader>
           <Label>SK 密钥</Label>
           <Input type="password" value={editing?.key ?? ''} onChange={(e) => editing && setEditing({ ...editing, key: e.target.value })} />
@@ -139,7 +139,7 @@ export function SettingsPage() {
       </Dialog>
 
       <Dialog open={adding} onOpenChange={setAdding}>
-        <DialogContent>
+        <DialogContent showCloseButton={false}>
           <DialogHeader><DialogTitle>添加自定义中转站</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>名称</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>

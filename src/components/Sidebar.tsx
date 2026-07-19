@@ -86,7 +86,7 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
               <button
                 type="button"
                 aria-label="重命名"
-                className="p-1.5 -m-1.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
+                className="p-1.5 -m-1.5 opacity-40 hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
                 onClick={(e) => {
                   e.stopPropagation()
                   if (c.id != null) { setRenamingId(c.id); setRenameValue(c.title) }
@@ -97,7 +97,7 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
               <button
                 type="button"
                 aria-label="删除"
-                className="p-1.5 -m-1.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+                className="p-1.5 -m-1.5 opacity-40 hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
                 onClick={(e) => {
                   e.stopPropagation()
                   if (c.id != null) setConfirmDeleteId(c.id)
@@ -116,7 +116,7 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
         <p className="text-sm text-muted-foreground">当前：{activeProvider?.name ?? '未配置'}</p>
       </div>
       <Dialog open={confirmDeleteId != null} onOpenChange={(o) => !o && setConfirmDeleteId(null)}>
-        <DialogContent>
+        <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>删除对话？</DialogTitle>
             <DialogDescription>此操作不可撤销，所有消息和图片都将被删除。</DialogDescription>
