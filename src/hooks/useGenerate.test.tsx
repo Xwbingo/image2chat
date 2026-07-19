@@ -108,7 +108,45 @@ it('upload source calls editImage without a stored source message', async () => 
   const { generate } = useGenerate()
   const res = (await generate(cid, 'edit upload', '1024x1024', undefined, uploadBlob)) as { messageId: number }
   expect(res.messageId).toBeGreaterThan(0)
-  const assistant = (await db.messages.toArray()).find((m) => m.role === 'assistant')!
+  const msgs = await db.messages.toArray()
+  const assistant = msgs.find((m) => m.role === 'assistant')!
+  const user = msgs.find((m) => m.role === 'user')!
   expect(assistant.status).toBe('success')
   expect(assistant.imageBlobId).toBeGreaterThan(0)
+  expect(user.kind).toBe('image_edit_request')
+  expect(user.imageBlobId).toBeGreaterThan(0)
+  expect(user.imageBlobId).not.toBe(assistant.imageBlobId)
+})
+
+it('chat edit request stores source imageBlobId on the user message', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/edits', () =>
+    HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] }),
+  ))
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+  const sourceBlob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
+  const sourceImgId = await db.images.add({ blob: sourceBlob, mimeType: 'image/png', createdAt: 0 })
+  const sourceMsgId = await db.messages.add({
+    conversationId: cid, role: 'assistant', kind: 'image_result',
+    size: '2048x1152', status: 'success', imageBlobId: sourceImgId, createdAt: 0,
+  })
+
+  const { generate } = useGenerate()
+  await generate(cid, 'make red', '2048x1152', sourceMsgId)
+  const user = (await db.messages.toArray()).find((m) => m.role === 'user' && m.kind === 'image_edit_request')!
+  expect(user.imageBlobId).toBe(sourceImgId)
+})
+
+it('text prompt leaves user imageBlobId undefined', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
+    HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] }),
+  ))
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+
+  const { generate } = useGenerate()
+  await generate(cid, 'just text', '1024x1024')
+  const user = (await db.messages.toArray()).find((m) => m.role === 'user')!
+  expect(user.kind).toBe('text_prompt')
+  expect(user.imageBlobId).toBeUndefined()
 })

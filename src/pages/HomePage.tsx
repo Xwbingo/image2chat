@@ -45,9 +45,11 @@ export function HomePage() {
     update()
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
+    window.addEventListener('resize', update)
     return () => {
       vv.removeEventListener('resize', update)
       vv.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
     }
   }, [])
 
@@ -144,7 +146,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-background text-foreground safe-top">
+    <div className="min-h-screen flex flex-col bg-background text-foreground safe-top">
       <OfflineBanner />
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden md:block h-full">

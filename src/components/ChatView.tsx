@@ -55,13 +55,17 @@ export function ChatView({
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-2 p-3 border-b border-border safe-top">
+      <header className="flex items-center gap-2 p-3 border-b border-border safe-top shrink-0">
         <Button size="icon" variant="ghost" onClick={onBack} aria-label="back">
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <h2 className="font-semibold truncate">{title ?? `会话 #${conversationId}`}</h2>
       </header>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-4">
+      <div
+        ref={scrollRef}
+        style={{ paddingBottom: `calc(7rem + env(safe-area-inset-bottom, 0px))` }}
+        className="flex-1 overflow-y-auto p-3 sm:p-4"
+      >
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center mt-8">还没有消息，开始创作吧</p>
         ) : (

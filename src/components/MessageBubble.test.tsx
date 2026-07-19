@@ -34,7 +34,7 @@ it('shows the referenced image in an edit request bubble', async () => {
   )
 
   expect(await screen.findByAltText('引用图')).toBeInTheDocument()
-  expect(screen.getByText('引用此图编辑')).toBeInTheDocument()
+  expect(screen.getByText('编辑引用图')).toBeInTheDocument()
 })
 
 it('renders generating placeholder for assistant with status generating', () => {

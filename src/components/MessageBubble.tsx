@@ -63,20 +63,24 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
   if (isUser) {
     return (
       <div className="flex justify-end mb-3">
-        <div className="max-w-[70%] bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2">
-          {message.prompt && <p className="whitespace-pre-wrap break-words">{message.prompt}</p>}
+        <div className="max-w-[80%] flex flex-col items-end gap-2">
           {message.kind === 'image_edit_request' && message.imageBlobId && blobUrl && (
-            <div className="mt-2 mb-1 flex items-center gap-2 text-xs opacity-90">
-              <img src={blobUrl} alt="引用图" className="h-12 w-12 rounded object-cover border border-primary-foreground/20" />
-              <span>引用此图编辑</span>
+            <div className="flex items-center gap-2 text-xs bg-accent text-accent-foreground rounded-full px-3 py-1.5">
+              <img src={blobUrl} alt="引用图" className="w-5 h-5 rounded object-cover" />
+              <span>编辑引用图</span>
             </div>
           )}
           {message.kind === 'image_edit_request' && message.imageBlobId && !blobUrl && (
-            <div className="mt-2 mb-1 text-xs opacity-70">引用此图编辑</div>
+            <div className="text-xs bg-accent text-accent-foreground rounded-full px-3 py-1.5">
+              编辑引用图
+            </div>
           )}
-          {message.imageBlobId && message.kind !== 'image_edit_request' && blobUrl && (
-            <img src={blobUrl} alt="" className="mt-2 rounded max-w-full" />
-          )}
+          <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2 max-w-full">
+            {message.prompt && <p className="whitespace-pre-wrap break-words">{message.prompt}</p>}
+            {message.imageBlobId && message.kind !== 'image_edit_request' && blobUrl && (
+              <img src={blobUrl} alt="" className="mt-2 rounded max-w-full" />
+            )}
+          </div>
         </div>
       </div>
     )

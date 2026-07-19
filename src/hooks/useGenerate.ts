@@ -37,10 +37,19 @@ export function useGenerate() {
         if (!provider) return { error: { kind: 'bad_request', message: '中转站未配置' } }
 
         const now = Date.now()
+        let userImageBlobId: number | undefined
+        if (editSourceMessageId != null) {
+          const srcMsg = await db.messages.get(editSourceMessageId)
+          userImageBlobId = srcMsg?.imageBlobId
+        } else if (uploadBlob) {
+          userImageBlobId = await addImage(uploadBlob, uploadBlob.type || 'image/png')
+        }
         await addMessage({
           conversationId, role: 'user',
           kind: editSourceMessageId != null || uploadBlob ? 'image_edit_request' : 'text_prompt',
-          prompt, size, status: 'success', createdAt: now,
+          prompt, size,
+          imageBlobId: userImageBlobId,
+          status: 'success', createdAt: now,
         })
         assistantId = await addMessage({
           conversationId, role: 'assistant', kind: 'image_result',

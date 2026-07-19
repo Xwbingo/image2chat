@@ -18,7 +18,7 @@ it('does not call onSend for empty prompt', async () => {
   expect(onSend).not.toHaveBeenCalled()
 })
 
-it('uses mobile-safe composer sizing and bottom padding', () => {
+it('uses mobile-safe composer sizing and is pinned to viewport bottom', () => {
   render(<Composer onSend={() => {}} />)
   const textarea = screen.getByPlaceholderText(/描述你想要的图像/i)
   const composer = textarea.parentElement?.parentElement
@@ -26,17 +26,23 @@ it('uses mobile-safe composer sizing and bottom padding', () => {
   const uploadButton = screen.getByRole('button', { name: '上传图片' })
 
   expect(textarea).toHaveAttribute('rows', '1')
-  expect(composer).toHaveStyle({ paddingBottom: 'max(0.75rem, 0px)' })
+  expect(composer).toHaveStyle({
+    position: 'fixed',
+    left: '0px',
+    right: '0px',
+    bottom: '0px',
+    zIndex: '50',
+  })
   expect(sendButton).toHaveClass('h-11', 'px-4', 'shrink-0')
   expect(uploadButton).toHaveClass('h-11', 'w-11', 'shrink-0')
   expect(screen.getByText('发送')).toHaveClass('hidden', 'sm:inline')
 })
 
-it('applies dynamic bottom padding from bottomInset prop', () => {
+it('applies dynamic bottomInset via translateY transform', () => {
   render(<Composer onSend={() => {}} bottomInset={56} />)
   const textarea = screen.getByPlaceholderText(/描述你想要的图像/i)
   const composer = textarea.parentElement?.parentElement
-  expect(composer).toHaveStyle({ paddingBottom: 'max(0.75rem, 56px)' })
+  expect(composer).toHaveStyle({ transform: 'translateY(-56px)' })
 })
 
 it('passes editSource when in edit mode', async () => {
