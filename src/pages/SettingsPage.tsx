@@ -112,9 +112,9 @@ export function SettingsPage() {
                   variant="default"
                   onClick={() => p.id != null && handleStartChat({ ...p, id: p.id })}
                   disabled={!p.apiKey.trim()}
-                  aria-label="开始聊天"
+                  aria-label="开始使用"
                 >
-                  <MessageSquare className="w-3 h-3 mr-1" /> 开始聊天
+                  <MessageSquare className="w-3 h-3 mr-1" /> 开始使用
                 </Button>
                 {p.isBuiltIn === 0 && (
                   <Button size="sm" variant="outline" onClick={() => p.id != null && deleteProvider(p.id)}>

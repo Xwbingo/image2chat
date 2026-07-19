@@ -130,6 +130,51 @@ it('upload via file input calls onAddLocal with the File', async () => {
   expect(onAddLocal).toHaveBeenCalledWith(file)
 })
 
+it('clicking the upload button triggers .click() on the hidden file input', async () => {
+  setup()
+  const input = screen.getByTestId('file-input') as HTMLInputElement
+  const clickSpy = vi.spyOn(input, 'click')
+  await userEvent.click(screen.getByTestId('upload-button'))
+  expect(clickSpy).toHaveBeenCalledTimes(1)
+})
+
+it('upload button is disabled and not clickable when at MAX_REFS', async () => {
+  const blobIds: number[] = []
+  for (let i = 0; i < 3; i++) {
+    blobIds.push(await db.images.add({
+      blob: new Blob([new Uint8Array([i])], { type: 'image/png' }),
+      mimeType: 'image/png', createdAt: i,
+    }))
+  }
+  const refs: ImageRef[] = blobIds.map((id, i) => ({ blobId: id, kind: 'local', fileName: `f${i}.png` }))
+  setup({ refs })
+  const btn = screen.getByTestId('upload-button') as HTMLButtonElement
+  expect(btn).toBeDisabled()
+})
+
+it('multi-file upload: passing 2 files calls onAddLocal for each within MAX_REFS', async () => {
+  const { onAddLocal } = setup()
+  const input = screen.getByTestId('file-input') as HTMLInputElement
+  const file1 = new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })
+  const file2 = new File([new Uint8Array([2])], 'b.png', { type: 'image/png' })
+  await userEvent.upload(input, [file1, file2])
+  expect(onAddLocal).toHaveBeenCalledTimes(2)
+  expect(onAddLocal).toHaveBeenNthCalledWith(1, file1)
+  expect(onAddLocal).toHaveBeenNthCalledWith(2, file2)
+})
+
+it('empty-slot button in refs strip also triggers .click() on the hidden file input', async () => {
+  const id = await db.images.add({
+    blob: new Blob([new Uint8Array([1])], { type: 'image/png' }),
+    mimeType: 'image/png', createdAt: 0,
+  })
+  setup({ refs: [{ blobId: id, kind: 'local', fileName: 'one.png' }] })
+  const input = screen.getByTestId('file-input') as HTMLInputElement
+  const clickSpy = vi.spyOn(input, 'click')
+  await userEvent.click(screen.getByTestId('add-ref-empty-slot'))
+  expect(clickSpy).toHaveBeenCalledTimes(1)
+})
+
 it('rejects file larger than 10MB with a toast (does not call onAddLocal)', async () => {
   const { onAddLocal } = setup()
   const input = screen.getByTestId('file-input') as HTMLInputElement
