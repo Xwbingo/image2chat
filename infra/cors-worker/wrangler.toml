@@ -1,0 +1,6 @@
+name = "image2chat-cors"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://image2chat.pages.dev"
