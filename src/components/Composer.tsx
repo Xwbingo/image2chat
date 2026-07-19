@@ -192,7 +192,7 @@ export function Composer({
                 type="file"
                 accept="image/*"
                 multiple
-                className="hidden"
+                className="sr-only"
                 onChange={handleFile}
               />
             </label>
@@ -217,8 +217,9 @@ export function Composer({
             type="file"
             accept="image/*"
             multiple
-            className="hidden"
+            className="sr-only"
             onChange={handleFile}
+            data-testid="file-input"
           />
         </label>
         <Textarea

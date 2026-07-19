@@ -123,16 +123,16 @@ it('clicking the remove button calls onRemoveRef with that blobId', async () => 
 })
 
 it('upload via file input calls onAddLocal with the File', async () => {
-  const { container, onAddLocal } = setup()
-  const input = container.querySelector('input[type="file"]') as HTMLInputElement
+  const { onAddLocal } = setup()
+  const input = screen.getByTestId('file-input') as HTMLInputElement
   const file = new File([new Uint8Array([1, 2, 3])], 'kitten.png', { type: 'image/png' })
   await userEvent.upload(input, file)
   expect(onAddLocal).toHaveBeenCalledWith(file)
 })
 
 it('rejects file larger than 10MB with a toast (does not call onAddLocal)', async () => {
-  const { container, onAddLocal } = setup()
-  const input = container.querySelector('input[type="file"]') as HTMLInputElement
+  const { onAddLocal } = setup()
+  const input = screen.getByTestId('file-input') as HTMLInputElement
   const big = new File([new Uint8Array(11 * 1024 * 1024)], 'big.png', { type: 'image/png' })
   await userEvent.upload(input, big)
   expect(onAddLocal).not.toHaveBeenCalled()
@@ -147,8 +147,8 @@ it('blocks 4th add: shows toast when file is dropped while already at 3 refs', a
     }))
   }
   const refs: ImageRef[] = blobIds.map((id, i) => ({ blobId: id, kind: 'local', fileName: `f${i}.png` }))
-  const { container, onAddLocal } = setup({ refs })
-  const input = container.querySelector('input[type="file"]') as HTMLInputElement
+  const { onAddLocal } = setup({ refs })
+  const input = screen.getByTestId('file-input') as HTMLInputElement
   const extra = new File([new Uint8Array([99])], 'extra.png', { type: 'image/png' })
   fireEvent.change(input, { target: { files: [extra] } })
   expect(onAddLocal).not.toHaveBeenCalled()
