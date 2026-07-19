@@ -22,13 +22,15 @@ it('shows unconfigured provider state', async () => {
   expect(screen.getByText('(未配置)')).toBeInTheDocument()
 })
 
-it('makes the 4K tier reachable through a scrollable sheet', async () => {
+it('keeps the animated sheet shell overflow-free and scrolls an inner wrapper', async () => {
   render(<StatusBar />)
   await userEvent.click(screen.getByText(/2K 横向/))
   const dialog = screen.getByRole('dialog')
+  const scrollRegion = dialog.firstElementChild
 
-  expect(dialog).toHaveClass('max-h-[85vh]', 'overflow-y-auto')
-  expect(screen.getByText('4K', { exact: true })).toHaveClass('sticky', 'top-0', 'bg-background')
+  expect(dialog).toHaveClass('p-0', 'max-h-[90vh]', 'gap-0')
+  expect(dialog).not.toHaveClass('overflow-y-auto')
+  expect(scrollRegion).toHaveClass('overflow-y-auto', 'max-h-[90vh]')
   expect(screen.getByText('4K 横向')).toBeInTheDocument()
 })
 

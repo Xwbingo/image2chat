@@ -26,31 +26,34 @@ export function ParamSheet({ open, onOpenChange, providerType, current, onSelect
   const sizes = getSupportedSizes(providerType ?? 'packy')
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-        <SheetHeader><SheetTitle>选择尺寸</SheetTitle></SheetHeader>
-        <div className="grid gap-3 p-3">
-          {TIERS.map((tier) => (
-            sizes.includes(tier.sizes[0]) && (
-              <div key={tier.label}>
-                <div className="text-xs text-muted-foreground mb-1.5 sticky top-0 bg-background py-1">{tier.label}</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {tier.sizes.filter((s) => sizes.includes(s)).map((s) => (
-                    <Button
-                      key={s}
-                      variant={s === current ? 'default' : 'outline'}
-                      onClick={() => { onSelect(s); onOpenChange(false) }}
-                      className="justify-start items-start text-left h-auto py-2"
-                    >
-                      <div className="flex flex-col items-start gap-0.5">
-                        <span className="text-sm">{LABELS[s]}</span>
-                        <span className="text-xs text-muted-foreground font-mono">{s}</span>
-                      </div>
-                    </Button>
-                  ))}
+      <SheetContent side="bottom" className="p-0 max-h-[90vh] gap-0">
+        {/* Plain div (no transform) handles scrolling */}
+        <div className="overflow-y-auto max-h-[90vh]">
+          <SheetHeader><SheetTitle>选择尺寸</SheetTitle></SheetHeader>
+          <div className="grid gap-3 p-3 pb-6">
+            {TIERS.map((tier) => (
+              sizes.includes(tier.sizes[0]) && (
+                <div key={tier.label}>
+                  <div className="text-xs text-muted-foreground mb-1.5 sticky top-0 bg-background py-1">{tier.label}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {tier.sizes.filter((s) => sizes.includes(s)).map((s) => (
+                      <Button
+                        key={s}
+                        variant={s === current ? 'default' : 'outline'}
+                        onClick={() => { onSelect(s); onOpenChange(false) }}
+                        className="justify-start items-start text-left h-auto py-2"
+                      >
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span className="text-sm">{LABELS[s]}</span>
+                          <span className="text-xs text-muted-foreground font-mono">{s}</span>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )
-          ))}
+              )
+            ))}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
