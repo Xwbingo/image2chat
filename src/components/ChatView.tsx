@@ -27,6 +27,19 @@ interface Props {
 const SIDEBAR_PX = 256
 const MD_BREAKPOINT = 768
 
+function formatDateLabel(timestamp: number): string {
+  const d = new Date(timestamp)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) return '今天'
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return '昨天'
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export function ChatView({
   conversationId,
   title,
@@ -88,16 +101,37 @@ export function ChatView({
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center mt-8">还没有消息，开始创作吧</p>
         ) : (
-          messages.map((m) => (
-            <MessageBubble
-              key={m.id}
-              message={m}
-              onImageClick={onOpenImage}
-              onRemoteClick={onRemoteClick}
-              onRetry={onRetry}
-              onEdit={onEdit}
-            />
-          ))
+          (() => {
+            const groups: Array<{ date: string; items: typeof messages }> = []
+            for (const m of messages) {
+              const label = formatDateLabel(m.createdAt)
+              const last = groups[groups.length - 1]
+              if (last && last.date === label) {
+                last.items.push(m)
+              } else {
+                groups.push({ date: label, items: [m] })
+              }
+            }
+            return groups.map((g) => (
+              <div key={g.date}>
+                <div className="flex items-center justify-center my-4">
+                  <span className="text-xs text-muted-foreground bg-card px-3 py-1 rounded-full border border-border">
+                    {g.date}
+                  </span>
+                </div>
+                {g.items.map((m) => (
+                  <MessageBubble
+                    key={m.id}
+                    message={m}
+                    onImageClick={onOpenImage}
+                    onRemoteClick={onRemoteClick}
+                    onRetry={onRetry}
+                    onEdit={onEdit}
+                  />
+                ))}
+              </div>
+            ))
+          })()
         )}
       </div>
       <div

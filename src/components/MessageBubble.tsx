@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Loader2, RefreshCw, Settings as SettingsIcon } from 'lucide-react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { Button } from '@/components/ui/button'
 import { db } from '@/lib/db'
 import type { Message } from '@/lib/db'
@@ -35,8 +36,7 @@ function isRetryable(errorCode?: string): boolean {
 }
 
 function formatDuration(ms: number): string {
-  if (ms < 1000) return '1 秒'
-  const sec = Math.round(ms / 1000)
+  const sec = Math.max(0, Math.floor(ms / 1000))
   if (sec < 60) return `${sec} 秒`
   const min = Math.floor(sec / 60)
   const remSec = sec % 60
@@ -47,10 +47,17 @@ function formatClock(ts: number): string {
   return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
+function formatClockShort(ts: number): string {
+  return new Date(ts).toLocaleString('zh-CN', {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  })
+}
+
 export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, onEdit }: Props) {
   const isUser = message.role === 'user'
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
+  const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
     if (message.status !== 'success' || !message.imageBlobId) return
@@ -73,19 +80,61 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
     return () => clearInterval(id)
   }, [message.status])
 
+  useEffect(() => {
+    if (message.status !== 'generating' || !message.startedAt) {
+      setElapsed(0)
+      return
+    }
+    const tick = () => setElapsed(Date.now() - message.startedAt!)
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [message.status, message.startedAt])
+
+  const sourceMsg = useLiveQuery(
+    async () => message.editSourceMessageId != null
+      ? await db.messages.get(message.editSourceMessageId)
+      : undefined,
+    [message.editSourceMessageId],
+  )
+
   if (isUser) {
+    const isEdit = message.kind === 'image_edit_request' && message.imageBlobId != null
     return (
       <div className="flex justify-end mb-3">
-        <div className="max-w-[80%] flex flex-col items-end gap-2">
-          {message.kind === 'image_edit_request' && message.imageBlobId && blobUrl && (
-            <div className="flex items-center gap-2 text-xs bg-accent text-accent-foreground rounded-full px-3 py-1.5">
-              <img src={blobUrl} alt="引用图" className="w-5 h-5 rounded object-cover" />
-              <span>编辑引用图</span>
-            </div>
+        <div className="max-w-[85%] flex flex-col items-end gap-2">
+          {isEdit && blobUrl && (
+            <button
+              type="button"
+              onClick={() => message.imageBlobId != null && onImageClick(message.imageBlobId)}
+              className="flex items-center gap-2 px-2 py-1.5 bg-accent/60 hover:bg-accent rounded-lg max-w-full transition-colors"
+            >
+              <img
+                src={blobUrl}
+                alt="引用图"
+                className="w-12 h-12 rounded object-cover border border-border shrink-0"
+              />
+              <div className="text-left min-w-0">
+                <div className="text-xs font-medium">
+                  {message.editSourceMessageId != null
+                    ? `引用了 #${message.editSourceMessageId} 张图`
+                    : `本地图片${message.localUploadName ? `：${message.localUploadName}` : ''}`}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {message.editSourceMessageId != null
+                    ? (sourceMsg?.createdAt
+                        ? `生成于 ${formatClockShort(sourceMsg.createdAt)}`
+                        : '点击查看大图')
+                    : formatClockShort(message.createdAt)}
+                </div>
+              </div>
+            </button>
           )}
-          {message.kind === 'image_edit_request' && message.imageBlobId && !blobUrl && (
-            <div className="text-xs bg-accent text-accent-foreground rounded-full px-3 py-1.5">
-              编辑引用图
+          {isEdit && !blobUrl && (
+            <div className="text-xs bg-accent text-accent-foreground rounded-lg px-3 py-1.5">
+              {message.editSourceMessageId != null
+                ? `引用了 #${message.editSourceMessageId} 张图`
+                : `本地图片${message.localUploadName ? `：${message.localUploadName}` : ''}`}
             </div>
           )}
           <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2 max-w-full">
@@ -95,7 +144,9 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
             )}
           </div>
           {message.createdAt ? (
-            <p className="text-xs opacity-70 mt-1">{formatClock(message.createdAt)}</p>
+            <span className="text-[10px] text-muted-foreground">
+              {formatClock(message.createdAt)}
+            </span>
           ) : null}
         </div>
       </div>
@@ -118,6 +169,9 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
           <div className="h-48 w-full max-w-xs sm:w-64 flex flex-col items-center justify-center gap-2 text-muted-foreground">
             <Loader2 className="w-6 h-6 animate-spin" />
             <span className="text-sm">{label}</span>
+            {message.startedAt && (
+              <span className="text-xs">已耗时 {formatDuration(elapsed)}</span>
+            )}
           </div>
         ) : message.status === 'success' ? (
           <>

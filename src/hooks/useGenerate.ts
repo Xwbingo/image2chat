@@ -54,6 +54,8 @@ export function useGenerate() {
           kind: editSourceMessageId != null || uploadBlob ? 'image_edit_request' : 'text_prompt',
           prompt, size,
           imageBlobId: userImageBlobId,
+          editSourceMessageId: editSourceMessageId ?? undefined,
+          localUploadName: uploadBlob instanceof File ? uploadBlob.name : undefined,
           status: 'success', createdAt: now,
         })
         startedAt = now + 1

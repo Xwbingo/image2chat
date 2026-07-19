@@ -180,3 +180,40 @@ it('failure path records completedAt so elapsed-time still renders', async () =>
   expect(assistant.startedAt).toBeGreaterThan(0)
   expect(assistant.completedAt).toBeGreaterThan(0)
 })
+
+it('chat edit request persists editSourceMessageId on the user message', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/edits', () =>
+    HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] }),
+  ))
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+  const sourceImgId = await db.images.add({
+    blob: new Blob([new Uint8Array([1])], { type: 'image/png' }),
+    mimeType: 'image/png', createdAt: 0,
+  })
+  const sourceMsgId = await db.messages.add({
+    conversationId: cid, role: 'assistant', kind: 'image_result',
+    size: '2048x1152', status: 'success', imageBlobId: sourceImgId, createdAt: 0,
+  })
+
+  const { generate } = useGenerate()
+  await generate(cid, 'make red', '2048x1152', sourceMsgId)
+  const user = (await db.messages.toArray()).find((m) => m.role === 'user' && m.kind === 'image_edit_request')!
+  expect(user.editSourceMessageId).toBe(sourceMsgId)
+  expect(user.localUploadName).toBeUndefined()
+})
+
+it('local upload edit request persists localUploadName on the user message', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/edits', () =>
+    HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] }),
+  ))
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+  const uploadBlob = new File([new Uint8Array([1, 2, 3])], 'cute-dog.png', { type: 'image/png' })
+
+  const { generate } = useGenerate()
+  await generate(cid, 'edit upload', '1024x1024', undefined, uploadBlob)
+  const user = (await db.messages.toArray()).find((m) => m.role === 'user' && m.kind === 'image_edit_request')!
+  expect(user.localUploadName).toBe('cute-dog.png')
+  expect(user.editSourceMessageId).toBeUndefined()
+})

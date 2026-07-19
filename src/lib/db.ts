@@ -40,6 +40,8 @@ export interface Message {
   createdAt: number
   startedAt?: number
   completedAt?: number
+  editSourceMessageId?: number
+  localUploadName?: string
 }
 
 export interface ImageBlob {
@@ -76,6 +78,12 @@ export class Image2ChatDB extends Dexie {
       images: '++id, createdAt',
     })
     this.version(4).stores({
+      providers: '++id, type, createdAt, baseUrl',
+      conversations: '++id, updatedAt, providerPresetId',
+      messages: '++id, conversationId, createdAt, status',
+      images: '++id, createdAt',
+    })
+    this.version(5).stores({
       providers: '++id, type, createdAt, baseUrl',
       conversations: '++id, updatedAt, providerPresetId',
       messages: '++id, conversationId, createdAt, status',
