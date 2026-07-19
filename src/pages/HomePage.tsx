@@ -76,12 +76,6 @@ export function HomePage() {
 
   async function handleSend(prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob; size?: string }) {
     if (conversationId == null) return
-    if (opts?.editSourceMessageId != null && opts.uploadBlob == null) {
-      const srcMsg = await db.messages.get(opts.editSourceMessageId)
-      if (srcMsg?.imageBlobId != null) {
-        void loadEditSource(opts.editSourceMessageId, srcMsg.imageBlobId, srcMsg.createdAt, 'chat')
-      }
-    }
     const finalSize = opts?.size ?? useSession.getState().defaultSize
     const result = await generate(conversationId, prompt, finalSize, opts?.editSourceMessageId, opts?.uploadBlob)
     if ('error' in result) {

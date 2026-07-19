@@ -27,6 +27,8 @@ export function Composer({ onSend, editSource, onClearEdit, onPreviewImage }: Pr
       return
     }
     onSend(t, { editSourceMessageId: editSource?.messageId, uploadBlob: upload?.blob })
+    if (editSource?.preview) URL.revokeObjectURL(editSource.preview)
+    onClearEdit?.()
     setText('')
     if (upload) URL.revokeObjectURL(upload.preview)
     setUpload(null)

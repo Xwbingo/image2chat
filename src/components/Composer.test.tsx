@@ -137,3 +137,26 @@ it('cancel button clears both upload and editSource', async () => {
   expect(onClearEdit).toHaveBeenCalled()
   vi.unstubAllGlobals()
 })
+
+it('auto-closes edit indicator after send (calls onClearEdit and revokes preview)', async () => {
+  const revoke = vi.fn()
+  vi.stubGlobal('URL', {
+    createObjectURL: vi.fn().mockReturnValue('blob:src'),
+    revokeObjectURL: revoke,
+  })
+  const onSend = vi.fn()
+  const onClearEdit = vi.fn()
+  render(
+    <Composer
+      onSend={onSend}
+      editSource={{ messageId: 7, blobId: 99, preview: 'blob:src', sourceKind: 'chat' }}
+      onClearEdit={onClearEdit}
+    />,
+  )
+  await userEvent.type(screen.getByPlaceholderText(/描述你想要的图像/i), 'make blue')
+  await userEvent.click(screen.getByText('发送'))
+  expect(onSend).toHaveBeenCalledWith('make blue', { editSourceMessageId: 7, uploadBlob: undefined })
+  expect(onClearEdit).toHaveBeenCalledTimes(1)
+  expect(revoke).toHaveBeenCalledWith('blob:src')
+  vi.unstubAllGlobals()
+})
