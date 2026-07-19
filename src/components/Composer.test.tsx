@@ -18,7 +18,7 @@ it('does not call onSend for empty prompt', async () => {
   expect(onSend).not.toHaveBeenCalled()
 })
 
-it('uses mobile-safe composer sizing and is pinned to viewport bottom', () => {
+it('uses mobile-safe composer sizing (pinning is handled by ChatView container)', () => {
   render(<Composer onSend={() => {}} />)
   const textarea = screen.getByPlaceholderText(/描述你想要的图像/i)
   const composer = textarea.parentElement?.parentElement
@@ -26,23 +26,18 @@ it('uses mobile-safe composer sizing and is pinned to viewport bottom', () => {
   const uploadButton = screen.getByRole('button', { name: '上传图片' })
 
   expect(textarea).toHaveAttribute('rows', '1')
-  expect(composer).toHaveStyle({
-    position: 'fixed',
-    left: '0px',
-    right: '0px',
-    bottom: '0px',
-    zIndex: '50',
-  })
+  expect(composer).not.toHaveStyle({ position: 'fixed' })
   expect(sendButton).toHaveClass('h-11', 'px-4', 'shrink-0')
   expect(uploadButton).toHaveClass('h-11', 'w-11', 'shrink-0')
   expect(screen.getByText('发送')).toHaveClass('hidden', 'sm:inline')
 })
 
-it('applies dynamic bottomInset via translateY transform', () => {
+it('does not accept bottomInset (pinning is the parent container\'s job)', () => {
+  // @ts-expect-error — bottomInset is intentionally removed; this documents the design
   render(<Composer onSend={() => {}} bottomInset={56} />)
   const textarea = screen.getByPlaceholderText(/描述你想要的图像/i)
   const composer = textarea.parentElement?.parentElement
-  expect(composer).toHaveStyle({ transform: 'translateY(-56px)' })
+  expect(composer).not.toHaveStyle({ transform: 'translateY(-56px)' })
 })
 
 it('passes editSource when in edit mode', async () => {

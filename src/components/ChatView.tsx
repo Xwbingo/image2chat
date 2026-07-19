@@ -63,7 +63,7 @@ export function ChatView({
       </header>
       <div
         ref={scrollRef}
-        style={{ paddingBottom: `calc(7rem + env(safe-area-inset-bottom, 0px))` }}
+        style={{ paddingBottom: `calc(9rem + env(safe-area-inset-bottom, 0px))` }}
         className="flex-1 overflow-y-auto p-3 sm:p-4"
       >
         {messages.length === 0 ? (
@@ -81,8 +81,20 @@ export function ChatView({
           ))
         )}
       </div>
-      {statusBar}
-      <Composer onSend={onSend} editSource={editSource} onClearEdit={onClearEdit} bottomInset={bottomInset} />
+      <div
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          transform: `translateY(-${bottomInset ?? 0}px)`,
+          zIndex: 40,
+        }}
+        className="md:left-64"
+      >
+        {statusBar}
+        <Composer onSend={onSend} editSource={editSource} onClearEdit={onClearEdit} />
+      </div>
     </div>
   )
 }

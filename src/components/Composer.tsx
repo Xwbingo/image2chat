@@ -10,10 +10,9 @@ interface Props {
   onSend: (prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob }) => void
   editSource?: { messageId: number; blobId: number; preview?: string }
   onClearEdit?: () => void
-  bottomInset?: number
 }
 
-export function Composer({ onSend, editSource, onClearEdit, bottomInset = 0 }: Props) {
+export function Composer({ onSend, editSource, onClearEdit }: Props) {
   const [text, setText] = useState('')
   const [upload, setUpload] = useState<{ blob: Blob; preview: string } | null>(null)
   const { toast } = useToast()
@@ -42,16 +41,10 @@ export function Composer({ onSend, editSource, onClearEdit, bottomInset = 0 }: P
   return (
     <div
       style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        transform: `translateY(-${bottomInset}px)`,
         backgroundColor: 'hsl(var(--background))',
         borderTop: '1px solid hsl(var(--border))',
         padding: '0.75rem 0.75rem',
         paddingBottom: `calc(0.75rem + env(safe-area-inset-bottom, 0px))`,
-        zIndex: 50,
       }}
     >
       {showIndicator && (
