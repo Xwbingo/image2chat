@@ -8,8 +8,10 @@ import { ChatView } from './ChatView'
 let mockMessages: ReturnType<typeof Object>[] = []
 
 vi.mock('./MessageBubble', () => ({
-  MessageBubble: ({ message }: { message: { id: number; kind: string } }) => (
-    <div data-testid="msg-bubble" data-msg-id={message.id} data-kind={message.kind} />
+  MessageBubble: ({ message, onReference }: { message: { id: number; kind: string }; onReference: (id: number) => void }) => (
+    <div data-testid="msg-bubble" data-msg-id={message.id} data-kind={message.kind}>
+      <button data-testid={`ref-${message.id}`} onClick={() => onReference(message.id)}>ref</button>
+    </div>
   ),
 }))
 vi.mock('@/hooks/useMessages', () => ({
@@ -25,6 +27,7 @@ beforeAll(() => {
 beforeEach(async () => {
   await db.delete()
   await db.open()
+  mockMessages = []
 })
 
 function renderChatView(props: Partial<React.ComponentProps<typeof ChatView>> = {}) {
@@ -34,8 +37,13 @@ function renderChatView(props: Partial<React.ComponentProps<typeof ChatView>> = 
       onBack={() => {}}
       onSettings={() => {}}
       onOpenImage={() => {}}
-      onEdit={() => {}}
+      onReference={() => {}}
       onSend={() => {}}
+      refs={[]}
+      onAddLocal={() => {}}
+      onRemoveRef={() => {}}
+      onReorderRefs={() => {}}
+      onClearRefs={() => {}}
       statusBar={<div data-testid="status-bar-stub">status</div>}
       {...props}
     />,
@@ -46,7 +54,7 @@ it('pins statusBar and Composer in a single fixed container at viewport bottom',
   renderChatView()
   const status = screen.getByTestId('status-bar-stub')
   const composerOuter = screen
-    .getByPlaceholderText(/描述你想要的图像/i)
+    .getByPlaceholderText(/描述你想要的图像/)
     .parentElement?.parentElement!
   const container = composerOuter.parentElement
   expect(container).toBe(status.parentElement)
@@ -77,7 +85,7 @@ it('places StatusBar above the Composer in source order so the Composer never co
   const kids = Array.from(shared.children)
   const statusIdx = kids.indexOf(screen.getByTestId('status-bar-stub'))
   const composerOuter = screen
-    .getByPlaceholderText(/描述你想要的图像/i)
+    .getByPlaceholderText(/描述你想要的图像/)
     .parentElement?.parentElement!
   const composerIdx = kids.indexOf(composerOuter)
   expect(statusIdx).toBeLessThan(composerIdx)
@@ -128,4 +136,21 @@ it('renders YYYY-MM-DD header for messages older than yesterday', () => {
   // YYYY-MM-DD format
   expect(screen.getByText(/^\d{4}-\d{2}-\d{2}$/)).toBeInTheDocument()
   mockMessages = []
+})
+
+it('passes the refs array down to Composer', () => {
+  const refs = [{ blobId: 7, kind: 'chat' as const, sourceMsgId: 99 }]
+  renderChatView({ refs })
+  // Composer renders the empty-hint only when refs is empty; with 1 ref it renders the strip.
+  expect(screen.queryByTestId('empty-hint')).not.toBeInTheDocument()
+})
+
+it('forwards "引用" click from MessageBubble to onReference', async () => {
+  const onReference = vi.fn()
+  mockMessages = [
+    { id: 42, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'success', createdAt: Date.now() },
+  ]
+  renderChatView({ onReference })
+  await userEvent.click(screen.getByTestId('ref-42'))
+  expect(onReference).toHaveBeenCalledWith(42)
 })

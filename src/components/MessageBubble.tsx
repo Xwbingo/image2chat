@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { Button } from '@/components/ui/button'
 import { db } from '@/lib/db'
-import type { Message } from '@/lib/db'
+import type { Message, ImageRef } from '@/lib/db'
 import { createObjectURLSafe, revokeObjectURLSafe } from '@/lib/image'
 import { cn } from '@/lib/utils'
 
@@ -11,7 +10,7 @@ interface Props {
   message: Message
   onImageClick: (blobId: number) => void
   onRemoteClick?: (url: string) => void
-  onEdit: (msgId: number) => void
+  onReference: (msgId: number) => void
 }
 
 const GENERATING_LABELS = ['正在创作…', '勾勒中', '渲染中', '精修中']
@@ -41,13 +40,81 @@ function formatClock(ts: number): string {
   return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatClockShort(ts: number): string {
-  return new Date(ts).toLocaleString('zh-CN', {
-    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-  })
+function MultiRefStrip({ refs, onPreview }: { refs: ImageRef[]; onPreview: (blobId: number) => void }) {
+  const [thumbs, setThumbs] = useState<Map<number, string>>(new Map())
+
+  useEffect(() => {
+    let cancelled = false
+    const next = new Map<number, string>()
+    Promise.all(
+      refs.map(async (r) => {
+        const img = await db.images.get(r.blobId)
+        if (img && !cancelled) next.set(r.blobId, URL.createObjectURL(img.blob))
+      }),
+    ).then(() => {
+      if (cancelled) return
+      setThumbs((prev) => {
+        const out = new Map(prev)
+        for (const [id, url] of out) {
+          if (!next.has(id)) {
+            URL.revokeObjectURL(url)
+            out.delete(id)
+          }
+        }
+        for (const [id, url] of next) out.set(id, url)
+        return out
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [refs])
+
+  useEffect(() => {
+    return () => {
+      for (const url of thumbs.values()) URL.revokeObjectURL(url)
+    }
+  }, [thumbs])
+
+  return (
+    <div className="flex gap-1.5 flex-wrap justify-end items-center" data-testid="multi-ref-strip">
+      {refs.map((ref, idx) => {
+        const url = thumbs.get(ref.blobId)
+        return (
+          <button
+            key={ref.blobId}
+            type="button"
+            onClick={() => onPreview(ref.blobId)}
+            data-testid="multi-ref-thumb"
+            data-ref-index={idx}
+            data-ref-kind={ref.kind}
+            className="relative w-14 h-14 rounded overflow-hidden border border-border hover:border-primary"
+          >
+            {url && <img src={url} alt="" className="w-full h-full object-cover" />}
+            <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[9px] px-1 rounded-br">
+              {idx + 1}
+            </span>
+            {ref.kind === 'chat' && ref.sourceMsgId != null && (
+              <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] truncate px-1">
+                #{ref.sourceMsgId}
+              </span>
+            )}
+            {ref.kind === 'local' && (
+              <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] truncate px-1">
+                {ref.fileName ? '本地' : '本地'}
+              </span>
+            )}
+          </button>
+        )
+      })}
+      <span className="text-xs text-muted-foreground self-center" data-testid="ref-count-label">
+        引用了 {refs.length} 张图
+      </span>
+    </div>
+  )
 }
 
-export function MessageBubble({ message, onImageClick, onRemoteClick, onEdit }: Props) {
+export function MessageBubble({ message, onImageClick, onRemoteClick, onReference }: Props) {
   const isUser = message.role === 'user'
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
@@ -85,51 +152,14 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onEdit }: 
     return () => clearInterval(id)
   }, [message.status, message.startedAt])
 
-  const sourceMsg = useLiveQuery(
-    async () => message.editSourceMessageId != null
-      ? await db.messages.get(message.editSourceMessageId)
-      : undefined,
-    [message.editSourceMessageId],
-  )
-
   if (isUser) {
-    const isEdit = message.kind === 'image_edit_request' && message.imageBlobId != null
+    const isEdit = message.kind === 'image_edit_request'
+    const refs = message.imageRefs ?? []
     return (
       <div className="flex justify-end mb-3">
         <div className="max-w-[85%] flex flex-col items-end gap-2">
-          {isEdit && blobUrl && (
-            <button
-              type="button"
-              onClick={() => message.imageBlobId != null && onImageClick(message.imageBlobId)}
-              className="flex items-center gap-2 px-2 py-1.5 bg-accent/60 hover:bg-accent rounded-lg max-w-full transition-colors"
-            >
-              <img
-                src={blobUrl}
-                alt="引用图"
-                className="w-12 h-12 rounded object-cover border border-border shrink-0"
-              />
-              <div className="text-left min-w-0">
-                <div className="text-xs font-medium">
-                  {message.editSourceMessageId != null
-                    ? `引用了 #${message.editSourceMessageId} 张图`
-                    : `本地图片${message.localUploadName ? `：${message.localUploadName}` : ''}`}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {message.editSourceMessageId != null
-                    ? (sourceMsg?.createdAt
-                        ? `生成于 ${formatClockShort(sourceMsg.createdAt)}`
-                        : '点击查看大图')
-                    : formatClockShort(message.createdAt)}
-                </div>
-              </div>
-            </button>
-          )}
-          {isEdit && !blobUrl && (
-            <div className="text-xs bg-accent text-accent-foreground rounded-lg px-3 py-1.5">
-              {message.editSourceMessageId != null
-                ? `引用了 #${message.editSourceMessageId} 张图`
-                : `本地图片${message.localUploadName ? `：${message.localUploadName}` : ''}`}
-            </div>
+          {isEdit && refs.length > 0 && (
+            <MultiRefStrip refs={refs} onPreview={onImageClick} />
           )}
           <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2 max-w-full">
             {message.prompt && <p className="whitespace-pre-wrap break-words">{message.prompt}</p>}
@@ -179,7 +209,7 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onEdit }: 
             )}
             <div className="flex gap-2 mt-2">
               <Button size="sm" variant="outline" onClick={() => message.imageBlobId != null ? onImageClick(message.imageBlobId) : message.remoteImageUrl && onRemoteClick?.(message.remoteImageUrl)}>查看</Button>
-              <Button size="sm" variant="outline" onClick={() => message.id != null && onEdit(message.id)}>编辑</Button>
+              <Button size="sm" variant="outline" onClick={() => message.id != null && onReference(message.id)}>引用</Button>
             </div>
             {(message.size || elapsedMs != null) && (
               <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">

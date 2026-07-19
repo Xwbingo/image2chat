@@ -10,10 +10,12 @@ import { Menu } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useProviders } from '@/hooks/useProviders'
 import { useSession } from '@/stores/useSession'
-import { addConversation } from '@/lib/repo'
-import { db } from '@/lib/db'
+import { addConversation, addImage } from '@/lib/repo'
+import { db, type ImageRef } from '@/lib/db'
 import { useGenerate } from '@/hooks/useGenerate'
 import { useToast } from '@/components/ui/use-toast'
+
+const MAX_REFS = 3
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -23,7 +25,7 @@ export function HomePage() {
   const { setActiveProviderId } = useSession()
   const { generate } = useGenerate()
   const { toast } = useToast()
-  const [editSource, setEditSource] = useState<{ messageId: number; blobId: number; preview?: string; sourceCreatedAt?: number; sourceKind?: 'local' | 'chat' } | undefined>()
+  const [refs, setRefs] = useState<ImageRef[]>([])
   const [viewerBlobId, setViewerBlobId] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [bottomInset, setBottomInset] = useState(0)
@@ -53,17 +55,48 @@ export function HomePage() {
     }
   }, [])
 
-  function clearEdit() {
-    if (editSource?.preview) URL.revokeObjectURL(editSource.preview)
-    setEditSource(undefined)
+  useEffect(() => {
+    setRefs([])
+  }, [conversationId])
+
+  async function handleAddLocal(file: File) {
+    if (refs.length >= MAX_REFS) return
+    const blobId = await addImage(file, file.type || 'image/png')
+    setRefs((prev) => {
+      if (prev.length >= MAX_REFS) return prev
+      if (prev.some((r) => r.blobId === blobId)) return prev
+      return [...prev, { blobId, kind: 'local', fileName: file.name }]
+    })
   }
 
-  async function loadEditSource(msgId: number, blobId: number, sourceCreatedAt?: number, sourceKind: 'chat' | 'local' = 'chat') {
-    const img = await db.images.get(blobId)
-    if (!img) return
-    if (editSource?.preview) URL.revokeObjectURL(editSource.preview)
-    const preview = URL.createObjectURL(img.blob)
-    setEditSource({ messageId: msgId, blobId: blobId, preview, sourceCreatedAt, sourceKind })
+  function handleRemoveRef(blobId: number) {
+    setRefs((prev) => prev.filter((r) => r.blobId !== blobId))
+  }
+
+  function handleReorderRefs(from: number, to: number) {
+    setRefs((prev) => {
+      if (from < 0 || from >= prev.length || to < 0 || to >= prev.length) return prev
+      const next = [...prev]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
+  }
+
+  function handleReferenceFromChat(assistantMsgId: number) {
+    if (refs.length >= MAX_REFS) return
+    void db.messages.get(assistantMsgId).then((m) => {
+      if (!m?.imageBlobId) return
+      setRefs((prev) => {
+        if (prev.some((r) => r.blobId === m.imageBlobId)) return prev
+        if (prev.length >= MAX_REFS) return prev
+        return [...prev, { blobId: m.imageBlobId!, kind: 'chat', sourceMsgId: assistantMsgId }]
+      })
+    })
+  }
+
+  function handleClearRefs() {
+    setRefs([])
   }
 
   async function handleNew() {
@@ -74,25 +107,19 @@ export function HomePage() {
     navigate(`/c/${id}`)
   }
 
-  async function handleSend(prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob; size?: string }) {
+  async function handleSend(prompt: string, sendRefs: ImageRef[]) {
     if (conversationId == null) return
-    const finalSize = opts?.size ?? useSession.getState().defaultSize
-    const result = await generate(conversationId, prompt, finalSize, opts?.editSourceMessageId, opts?.uploadBlob)
+    setRefs(sendRefs)
+    const result = await generate(conversationId, prompt, useSession.getState().defaultSize, sendRefs)
     if ('error' in result) {
       toast({
         variant: 'destructive',
         title: '生成失败',
         description: result.error.message,
       })
+      return
     }
-  }
-
-  function handleEdit(msgId: number) {
-    db.messages.get(msgId).then((m) => {
-      if (m?.imageBlobId != null) {
-        void loadEditSource(msgId, m.imageBlobId, m.createdAt, 'chat')
-      }
-    })
+    setRefs([])
   }
 
   function handleRemoteImageClick(url: string) {
@@ -129,11 +156,13 @@ export function HomePage() {
               onSettings={() => navigate('/settings')}
               onOpenImage={(blobId) => setViewerBlobId(blobId)}
               onRemoteClick={handleRemoteImageClick}
-              onEdit={handleEdit}
+              onReference={handleReferenceFromChat}
               onSend={handleSend}
-              editSource={editSource}
-              onClearEdit={clearEdit}
-              onPreviewImage={(blobId) => setViewerBlobId(blobId)}
+              refs={refs}
+              onAddLocal={handleAddLocal}
+              onRemoveRef={handleRemoveRef}
+              onReorderRefs={handleReorderRefs}
+              onClearRefs={handleClearRefs}
               bottomInset={bottomInset}
               statusBar={<StatusBar activeConversationId={conversationId} />}
             />

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw'
 import { server } from '@/test/server'
-import { generateImage, editImage } from './client'
+import { generateImage, editImage, editImageMulti } from './client'
 
 beforeAll(() => server.listen())
 afterEach(() => server.resetHandlers())
@@ -54,5 +54,40 @@ describe('editImage', () => {
     expect(captured!.get('size')).toBe('1024x1024')
     expect(captured!.get('response_format')).toBe('b64_json')
     expect(captured!.get('image')).toBeInstanceOf(Blob)
+  })
+})
+
+describe('editImageMulti', () => {
+  it('appends each blob as a separate "image" field in order', async () => {
+    let captured: FormData | null = null
+    server.use(http.post('https://www.packyapi.com/v1/images/edits', async ({ request }) => {
+      captured = await request.formData()
+      return HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] })
+    }))
+    const blobs = [
+      new Blob([new Uint8Array([1])], { type: 'image/png' }),
+      new Blob([new Uint8Array([2])], { type: 'image/png' }),
+      new Blob([new Uint8Array([3])], { type: 'image/png' }),
+    ]
+    const res = await editImageMulti('https://www.packyapi.com', 'sk-test', 'combine', blobs, '1024x1024')
+    expect(res.data[0].b64_json).toBe(IMAGE_B64)
+    const images = captured!.getAll('image') as Blob[]
+    expect(images).toHaveLength(3)
+    // Each FormData entry is wrapped as a File with the source-N filename, so we compare byte content via size + array equality.
+    expect(await images[0].arrayBuffer()).toEqual(await blobs[0].arrayBuffer())
+    expect(await images[1].arrayBuffer()).toEqual(await blobs[1].arrayBuffer())
+    expect(await images[2].arrayBuffer()).toEqual(await blobs[2].arrayBuffer())
+    expect(captured!.get('prompt')).toBe('combine')
+    expect(captured!.get('size')).toBe('1024x1024')
+  })
+
+  it('with empty blobs array still sends a valid form (no images)', async () => {
+    let captured: FormData | null = null
+    server.use(http.post('https://www.packyapi.com/v1/images/edits', async ({ request }) => {
+      captured = await request.formData()
+      return HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] })
+    }))
+    await editImageMulti('https://www.packyapi.com', 'sk-test', 'nope', [], '1024x1024')
+    expect(captured!.getAll('image')).toHaveLength(0)
   })
 })

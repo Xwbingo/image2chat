@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { db } from '@/lib/db'
+import type { ImageRef } from '@/lib/db'
 import { MessageBubble } from './MessageBubble'
 
 beforeEach(async () => { await db.delete(); await db.open() })
@@ -11,28 +12,74 @@ it('renders user text prompt', () => {
     <MessageBubble
       message={{ id: 1, conversationId: 1, role: 'user', kind: 'text_prompt', prompt: 'hello', status: 'success', createdAt: 0 }}
       onImageClick={() => {}}
-      onEdit={() => {}}
+      onReference={() => {}}
     />,
   )
   expect(screen.getByText('hello')).toBeInTheDocument()
 })
 
-it('shows the referenced image in an edit request bubble', async () => {
-  const blobId = await db.images.add({
-    blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }),
-    mimeType: 'image/png',
-    createdAt: 0,
-  })
+it('user bubble with multi-refs renders one thumb per ref with index badges', async () => {
+  const ids: number[] = []
+  for (let i = 0; i < 3; i++) {
+    ids.push(await db.images.add({
+      blob: new Blob([new Uint8Array([i + 1])], { type: 'image/png' }),
+      mimeType: 'image/png', createdAt: i,
+    }))
+  }
+  const refs: ImageRef[] = [
+    { blobId: ids[0], kind: 'chat', sourceMsgId: 5 },
+    { blobId: ids[1], kind: 'local', fileName: 'b.png' },
+    { blobId: ids[2], kind: 'chat', sourceMsgId: 7 },
+  ]
   render(
     <MessageBubble
-      message={{ id: 7, conversationId: 1, role: 'user', kind: 'image_edit_request', prompt: 'make it blue', imageBlobId: blobId, status: 'success', createdAt: 0 }}
+      message={{
+        id: 8, conversationId: 1, role: 'user', kind: 'image_edit_request',
+        prompt: 'combine', imageRefs: refs, status: 'success', createdAt: 0,
+      }}
       onImageClick={() => {}}
-      onEdit={() => {}}
+      onReference={() => {}}
     />,
   )
+  expect(await screen.findByTestId('multi-ref-strip')).toBeInTheDocument()
+  const thumbs = screen.getAllByTestId('multi-ref-thumb')
+  expect(thumbs).toHaveLength(3)
+  expect(thumbs[0]).toHaveAttribute('data-ref-index', '0')
+  expect(thumbs[2]).toHaveAttribute('data-ref-index', '2')
+  expect(screen.getByTestId('ref-count-label')).toHaveTextContent('引用了 3 张图')
+})
 
-  expect(await screen.findByAltText('引用图')).toBeInTheDocument()
-  expect(screen.getByText('本地图片')).toBeInTheDocument()
+it('user bubble without refs shows no multi-ref strip', () => {
+  render(
+    <MessageBubble
+      message={{ id: 1, conversationId: 1, role: 'user', kind: 'text_prompt', prompt: 'plain', status: 'success', createdAt: 0 }}
+      onImageClick={() => {}}
+      onReference={() => {}}
+    />,
+  )
+  expect(screen.queryByTestId('multi-ref-strip')).not.toBeInTheDocument()
+})
+
+it('clicking a ref thumb triggers onImageClick with the blobId', async () => {
+  const id = await db.images.add({
+    blob: new Blob([new Uint8Array([1])], { type: 'image/png' }),
+    mimeType: 'image/png', createdAt: 0,
+  })
+  const onImageClick = vi.fn()
+  render(
+    <MessageBubble
+      message={{
+        id: 9, conversationId: 1, role: 'user', kind: 'image_edit_request',
+        prompt: 'edit', imageRefs: [{ blobId: id, kind: 'chat', sourceMsgId: 4 }],
+        status: 'success', createdAt: 0,
+      }}
+      onImageClick={onImageClick}
+      onReference={() => {}}
+    />,
+  )
+  const thumb = await screen.findByTestId('multi-ref-thumb')
+  await userEvent.click(thumb)
+  expect(onImageClick).toHaveBeenCalledWith(id)
 })
 
 it('renders generating placeholder for assistant with status generating', () => {
@@ -40,7 +87,7 @@ it('renders generating placeholder for assistant with status generating', () => 
     <MessageBubble
       message={{ id: 1, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'generating', createdAt: 0 }}
       onImageClick={() => {}}
-      onEdit={() => {}}
+      onReference={() => {}}
     />,
   )
   expect(screen.getByText(/正在创作/i)).toBeInTheDocument()
@@ -51,7 +98,7 @@ it('renders failed state with the friendly error message', () => {
     <MessageBubble
       message={{ id: 5, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'failed', errorCode: '500', createdAt: 0 }}
       onImageClick={() => {}}
-      onEdit={() => {}}
+      onReference={() => {}}
     />,
   )
   expect(screen.getByText(/服务异常/i)).toBeInTheDocument()
@@ -62,7 +109,7 @@ it('does not render any retry button on a failed message', () => {
     <MessageBubble
       message={{ id: 5, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'failed', errorCode: 'network', createdAt: 0 }}
       onImageClick={() => {}}
-      onEdit={() => {}}
+      onReference={() => {}}
     />,
   )
   expect(screen.queryByText('重试')).not.toBeInTheDocument()
@@ -75,7 +122,7 @@ it('uses remote fallback for image actions when blob is missing', async () => {
       message={{ id: 6, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'success', remoteImageUrl: 'https://cdn/image.png', createdAt: 0 }}
       onImageClick={() => {}}
       onRemoteClick={onRemoteClick}
-      onEdit={() => {}}
+      onReference={() => {}}
     />,
   )
   await userEvent.click(container.querySelector('img')!)
@@ -88,7 +135,7 @@ it('renders a hint to update the API key for 401', () => {
     <MessageBubble
       message={{ id: 5, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'failed', errorCode: '401', createdAt: 0 }}
       onImageClick={() => {}}
-      onEdit={() => {}}
+      onReference={() => {}}
     />,
   )
   expect(screen.getByText(/密钥管理/)).toBeInTheDocument()
@@ -104,7 +151,7 @@ it('shows assistant timing metadata when startedAt + completedAt are set', () =>
         startedAt: 1000, completedAt: 1000 + 8000,
       }}
       onImageClick={() => {}}
-      onEdit={() => {}}
+      onReference={() => {}}
     />,
   )
   expect(screen.getByText('1024x1024')).toBeInTheDocument()
@@ -120,7 +167,7 @@ it('shows user message clock timestamp', () => {
         createdAt: new Date(2026, 6, 19, 9, 5).getTime(),
       }}
       onImageClick={() => {}}
-      onEdit={() => {}}
+      onReference={() => {}}
     />,
   )
   expect(screen.getByText('09:05')).toBeInTheDocument()
@@ -137,7 +184,7 @@ it('shows live "已耗时" counter while assistant is generating', () => {
           status: 'generating', createdAt: startedAt, startedAt,
         }}
         onImageClick={() => {}}
-        onEdit={() => {}}
+        onReference={() => {}}
       />,
     )
     act(() => { vi.advanceTimersByTime(3500) })
@@ -148,70 +195,20 @@ it('shows live "已耗时" counter while assistant is generating', () => {
   }
 })
 
-it('shows "引用了 #N 张图" with source timestamp for chat-source edit', async () => {
-  const sourceBlobId = await db.images.add({
-    blob: new Blob([new Uint8Array([10])], { type: 'image/png' }),
-    mimeType: 'image/png',
-    createdAt: 0,
-  })
-  const sourceMsgId = await db.messages.add({
-    conversationId: 1, role: 'assistant', kind: 'image_result',
-    status: 'success', imageBlobId: sourceBlobId,
-    createdAt: new Date(2026, 6, 19, 10, 30).getTime(),
-  })
-  render(
-    <MessageBubble
-      message={{
-        id: 12, conversationId: 1, role: 'user', kind: 'image_edit_request',
-        prompt: 'make it red', imageBlobId: sourceBlobId,
-        editSourceMessageId: sourceMsgId, status: 'success',
-        createdAt: new Date(2026, 6, 19, 10, 35).getTime(),
-      }}
-      onImageClick={() => {}}
-      onEdit={() => {}}
-    />,
-  )
-  expect(await screen.findByAltText('引用图')).toBeInTheDocument()
-  expect(screen.getByText(/引用了 #/)).toBeInTheDocument()
-  expect(await screen.findByText(/生成于/)).toBeInTheDocument()
-})
-
-it('shows local upload filename when edit request has no source message id', async () => {
+it('successful assistant renders "引用" button that triggers onReference', async () => {
   const blobId = await db.images.add({
     blob: new Blob([new Uint8Array([1])], { type: 'image/png' }),
-    mimeType: 'image/png',
-    createdAt: 0,
+    mimeType: 'image/png', createdAt: 0,
   })
+  const onReference = vi.fn()
   render(
     <MessageBubble
-      message={{
-        id: 13, conversationId: 1, role: 'user', kind: 'image_edit_request',
-        prompt: 'edit local', imageBlobId: blobId, localUploadName: 'kitten.png',
-        status: 'success', createdAt: new Date(2026, 6, 19, 12, 0).getTime(),
-      }}
+      message={{ id: 20, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'success', imageBlobId: blobId, createdAt: 0 }}
       onImageClick={() => {}}
-      onEdit={() => {}}
+      onReference={onReference}
     />,
   )
-  expect(await screen.findByAltText('引用图')).toBeInTheDocument()
-  expect(screen.getByText('本地图片：kitten.png')).toBeInTheDocument()
-})
-
-it('edit source card thumbnail click triggers onImageClick', async () => {
-  const onImageClick = vi.fn()
-  const blobId = await db.images.add({
-    blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }),
-    mimeType: 'image/png',
-    createdAt: 0,
-  })
-  render(
-    <MessageBubble
-      message={{ id: 14, conversationId: 1, role: 'user', kind: 'image_edit_request', prompt: 'x', imageBlobId: blobId, status: 'success', createdAt: 0 }}
-      onImageClick={onImageClick}
-      onEdit={() => {}}
-    />,
-  )
-  const btn = await screen.findByRole('button')
-  await userEvent.click(btn)
-  expect(onImageClick).toHaveBeenCalledWith(blobId)
+  expect(screen.queryByText('编辑')).not.toBeInTheDocument()
+  await userEvent.click(screen.getByText('引用'))
+  expect(onReference).toHaveBeenCalledWith(20)
 })

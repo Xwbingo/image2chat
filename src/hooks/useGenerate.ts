@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
-import { db } from '@/lib/db'
+import { db, type ImageRef } from '@/lib/db'
 import { getProvider, addMessage, updateMessageStatus, setMessageBlobId, addImage, touchConversation } from '@/lib/repo'
-import { generateImage, editImage } from '@/lib/api/client'
+import { generateImage, editImageMulti } from '@/lib/api/client'
 import type { ApiError } from '@/lib/api/errors'
 import { parseNetworkError } from '@/lib/api/errors'
 
@@ -20,18 +20,13 @@ function base64ToBlob(b64: string, mime = 'image/png'): Blob {
   return new Blob([arr], { type: mime })
 }
 
-async function setMessageTiming(id: number, startedAt?: number, completedAt?: number) {
-  await db.messages.update(id, { startedAt, completedAt })
-}
-
 export function useGenerate() {
   return {
     generate: useCallback(async (
       conversationId: number,
       prompt: string,
       size: string,
-      editSourceMessageId?: number,
-      uploadBlob?: Blob,
+      imageRefs: ImageRef[] = [],
     ): Promise<GenerateResult> => {
       let assistantId: number | undefined
       let startedAt: number | undefined
@@ -42,20 +37,11 @@ export function useGenerate() {
         if (!provider) return { error: { kind: 'bad_request', message: '中转站未配置' } }
 
         const now = Date.now()
-        let userImageBlobId: number | undefined
-        if (editSourceMessageId != null) {
-          const srcMsg = await db.messages.get(editSourceMessageId)
-          userImageBlobId = srcMsg?.imageBlobId
-        } else if (uploadBlob) {
-          userImageBlobId = await addImage(uploadBlob, uploadBlob.type || 'image/png')
-        }
         await addMessage({
           conversationId, role: 'user',
-          kind: editSourceMessageId != null || uploadBlob ? 'image_edit_request' : 'text_prompt',
+          kind: imageRefs.length > 0 ? 'image_edit_request' : 'text_prompt',
           prompt, size,
-          imageBlobId: userImageBlobId,
-          editSourceMessageId: editSourceMessageId ?? undefined,
-          localUploadName: uploadBlob instanceof File ? uploadBlob.name : undefined,
+          imageRefs,
           status: 'success', createdAt: now,
         })
         startedAt = now + 1
@@ -66,14 +52,14 @@ export function useGenerate() {
         await touchConversation(conversationId)
 
         let response
-        if (uploadBlob) {
-          response = await editImage(provider.baseUrl, provider.apiKey, prompt, uploadBlob, size, provider.corsProxy)
-        } else if (editSourceMessageId != null) {
-          const srcMsg = await db.messages.get(editSourceMessageId)
-          if (!srcMsg?.imageBlobId) throw { kind: 'bad_request', message: '找不到参考图' }
-          const img = await db.images.get(srcMsg.imageBlobId)
-          if (!img) throw { kind: 'bad_request', message: '参考图丢失' }
-          response = await editImage(provider.baseUrl, provider.apiKey, prompt, img.blob, size, provider.corsProxy)
+        if (imageRefs.length > 0) {
+          const blobs: Blob[] = []
+          for (const ref of imageRefs) {
+            const img = await db.images.get(ref.blobId)
+            if (!img) throw { kind: 'bad_request', message: `找不到参考图 blobId=${ref.blobId}` }
+            blobs.push(img.blob)
+          }
+          response = await editImageMulti(provider.baseUrl, provider.apiKey, prompt, blobs, size, provider.corsProxy)
         } else {
           response = await generateImage(provider.baseUrl, provider.apiKey, { prompt, size }, provider.corsProxy)
         }
@@ -82,14 +68,14 @@ export function useGenerate() {
         const blob = base64ToBlob(b64)
         const bid = await addImage(blob, 'image/png')
         await setMessageBlobId(assistantId, bid)
-        await setMessageTiming(assistantId, startedAt, Date.now())
+        await db.messages.update(assistantId, { completedAt: Date.now() })
         await updateMessageStatus(assistantId, 'success')
         return { messageId: assistantId }
       } catch (e: unknown) {
         const err: ApiError = isApiError(e) ? e : parseNetworkError(e)
         if (assistantId != null) {
           try {
-            await setMessageTiming(assistantId, startedAt, Date.now())
+            await db.messages.update(assistantId, { completedAt: Date.now() })
             await updateMessageStatus(assistantId, 'failed', err.kind)
           } catch { }
         }

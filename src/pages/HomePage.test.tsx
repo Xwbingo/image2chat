@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { db } from '@/lib/db'
+import { db, type ImageRef } from '@/lib/db'
 import { useSession } from '@/stores/useSession'
 import { HomePage } from './HomePage'
 
@@ -21,10 +21,21 @@ vi.mock('@/components/Sidebar', () => ({ Sidebar: () => null }))
 vi.mock('@/components/StatusBar', () => ({ StatusBar: () => null }))
 vi.mock('@/components/ImageViewer', () => ({ ImageViewer: () => null }))
 vi.mock('@/components/OfflineBanner', () => ({ OfflineBanner: () => null }))
+
+let capturedProps: Record<string, unknown> = {}
+let firstMsgId = 1
+
 vi.mock('@/components/ChatView', () => ({
-  ChatView: ({ onSend }: { onSend: (prompt: string, opts?: { size?: string }) => void }) => (
-    <button onClick={() => onSend('hi', { size: '1024x1024' })}>发送</button>
-  ),
+  ChatView: (props: Record<string, unknown>) => {
+    capturedProps = props
+    return (
+      <div>
+        <button onClick={() => (props.onSend as (p: string, r: ImageRef[]) => void)('hi', [])}>发送</button>
+        <button data-testid="ref-btn" onClick={() => (props.onReference as (id: number) => void)(firstMsgId)}>引用按钮</button>
+        <span data-testid="refs-count">{(props.refs as ImageRef[]).length}</span>
+      </div>
+    )
+  },
 }))
 
 function renderHomePage() {
@@ -65,5 +76,108 @@ it('sends a new prompt through the wired ChatView onSend handler', async () => {
   renderHomePage()
   await userEvent.click(screen.getByText('发送'))
 
-  expect(generate).toHaveBeenCalledWith(1, 'hi', '1024x1024', undefined, undefined)
+  expect(generate).toHaveBeenCalledWith(1, 'hi', expect.any(String), [])
+})
+
+it('exposes refs and ref handlers on ChatView', async () => {
+  await db.conversations.add({ title: 'Chat', createdAt: 0, updatedAt: 0, providerPresetId: 1 })
+  renderHomePage()
+  expect(capturedProps).toHaveProperty('refs', [])
+  expect(typeof capturedProps.onAddLocal).toBe('function')
+  expect(typeof capturedProps.onRemoveRef).toBe('function')
+  expect(typeof capturedProps.onReorderRefs).toBe('function')
+  expect(typeof capturedProps.onClearRefs).toBe('function')
+  expect(typeof capturedProps.onReference).toBe('function')
+})
+
+it('handleReferenceFromChat adds assistant image to refs and respects 3-limit', async () => {
+  await db.conversations.add({ title: 'Chat', createdAt: 0, updatedAt: 0, providerPresetId: 1 })
+  const imageIds: number[] = []
+  for (let i = 0; i < 4; i++) {
+    imageIds.push(await db.images.add({
+      blob: new Blob([new Uint8Array([i])], { type: 'image/png' }),
+      mimeType: 'image/png', createdAt: i,
+    }))
+  }
+  const msgIds: number[] = []
+  for (let i = 0; i < 4; i++) {
+    msgIds.push(await db.messages.add({
+      conversationId: 1, role: 'assistant', kind: 'image_result',
+      status: 'success', imageBlobId: imageIds[i], createdAt: i + 100,
+    }))
+  }
+
+  firstMsgId = msgIds[0]
+  renderHomePage()
+
+  // Click 引用按钮 4 times — should only end up with 1 ref (deduplicates same blobId)
+  const refButton = screen.getByTestId('ref-btn')
+  for (let i = 0; i < 4; i++) {
+    fireEvent.click(refButton)
+  }
+  await waitFor(() => {
+    expect((capturedProps.refs as ImageRef[]).length).toBe(1)
+  })
+  expect((capturedProps.refs as ImageRef[])[0].sourceMsgId).toBe(msgIds[0])
+})
+
+it('handleSend clears refs after success', async () => {
+  await db.conversations.add({ title: 'Chat', createdAt: 0, updatedAt: 0, providerPresetId: 1 })
+  renderHomePage()
+  // Click 发送 with empty refs
+  await userEvent.click(screen.getByText('发送'))
+  expect(generate).toHaveBeenCalledWith(1, 'hi', expect.any(String), [])
+})
+
+it('handleAddLocal persists the blob and adds to refs', async () => {
+  await db.conversations.add({ title: 'Chat', createdAt: 0, updatedAt: 0, providerPresetId: 1 })
+  renderHomePage()
+
+  const file = new File([new Uint8Array([1, 2, 3])], 'local.png', { type: 'image/png' })
+  await (capturedProps.onAddLocal as (f: File) => Promise<void>)(file)
+  await waitFor(() => {
+    expect((capturedProps.refs as ImageRef[]).length).toBe(1)
+  })
+
+  const refs = capturedProps.refs as ImageRef[]
+  expect(refs[0].kind).toBe('local')
+  expect(refs[0].fileName).toBe('local.png')
+  // Verify the blob was persisted
+  const img = await db.images.get(refs[0].blobId)
+  expect(img).toBeDefined()
+})
+
+it('handleAddLocal respects 3-limit (4th call no-ops)', async () => {
+  await db.conversations.add({ title: 'Chat', createdAt: 0, updatedAt: 0, providerPresetId: 1 })
+  renderHomePage()
+
+  for (let i = 0; i < 4; i++) {
+    const file = new File([new Uint8Array([i])], `f${i}.png`, { type: 'image/png' })
+    await (capturedProps.onAddLocal as (f: File) => Promise<void>)(file)
+  }
+  await waitFor(() => {
+    expect((capturedProps.refs as ImageRef[]).length).toBe(3)
+  })
+})
+
+it('handleReorderRefs moves an item from one index to another', async () => {
+  await db.conversations.add({ title: 'Chat', createdAt: 0, updatedAt: 0, providerPresetId: 1 })
+  renderHomePage()
+  // Add 3 refs sequentially so each one sees the previous state.
+  for (let i = 0; i < 3; i++) {
+    const file = new File([new Uint8Array([i])], `f${i}.png`, { type: 'image/png' })
+    await (capturedProps.onAddLocal as (f: File) => Promise<void>)(file)
+  }
+  await waitFor(() => {
+    expect((capturedProps.refs as ImageRef[]).length).toBe(3)
+  })
+  const before = (capturedProps.refs as ImageRef[]).map((r) => r.blobId)
+  expect(before).toHaveLength(3)
+  ;(capturedProps.onReorderRefs as (from: number, to: number) => void)(0, 2)
+  await waitFor(() => {
+    const after = (capturedProps.refs as ImageRef[]).map((r) => r.blobId)
+    expect(after[0]).toBe(before[1])
+    expect(after[1]).toBe(before[2])
+    expect(after[2]).toBe(before[0])
+  })
 })

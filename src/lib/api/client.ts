@@ -47,9 +47,9 @@ export async function generateImage(
   }
 }
 
-export async function editImage(
+export async function editImageMulti(
   baseUrl: string, apiKey: string,
-  prompt: string, sourceBlob: Blob, size: string,
+  prompt: string, sourceBlobs: Blob[], size: string,
   corsProxy?: string,
 ): Promise<GenerateResponse> {
   const url = applyCorsProxy(
@@ -59,7 +59,9 @@ export async function editImage(
   const form = new FormData()
   form.append('model', 'gpt-image-2')
   form.append('prompt', prompt)
-  form.append('image', sourceBlob, 'source.png')
+  sourceBlobs.forEach((blob, idx) => {
+    form.append('image', blob, `source-${idx}.png`)
+  })
   form.append('n', '1')
   form.append('size', size)
   form.append('quality', 'high')
@@ -78,4 +80,12 @@ export async function editImage(
     if (e && typeof e === 'object' && 'kind' in e) throw e
     throw parseNetworkError(e)
   }
+}
+
+export function editImage(
+  baseUrl: string, apiKey: string,
+  prompt: string, sourceBlob: Blob, size: string,
+  corsProxy?: string,
+): Promise<GenerateResponse> {
+  return editImageMulti(baseUrl, apiKey, prompt, [sourceBlob], size, corsProxy)
 }

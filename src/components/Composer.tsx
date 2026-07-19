@@ -1,23 +1,89 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Send, Paperclip, X } from 'lucide-react'
+import { Send, Paperclip, X, Plus } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
-import { addImage } from '@/lib/repo'
+import { db, type ImageRef } from '@/lib/db'
 
 const MAX_PROMPT_LEN = 4000
+const MAX_REFS = 3
+const MAX_FILE_SIZE = 10 * 1024 * 1024
 
 interface Props {
-  onSend: (prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob }) => void
-  editSource?: { messageId: number; blobId: number; preview?: string; sourceCreatedAt?: number; sourceKind?: 'local' | 'chat' }
-  onClearEdit?: () => void
-  onPreviewImage?: (blobId: number) => void
+  refs: ImageRef[]
+  onAddLocal: (file: File) => void
+  onRemoveRef: (blobId: number) => void
+  onReorderRefs: (fromIndex: number, toIndex: number) => void
+  onClearRefs: () => void
+  onSend: (prompt: string, refs: ImageRef[]) => void
+  bottomInset?: number
 }
 
-export function Composer({ onSend, editSource, onClearEdit, onPreviewImage }: Props) {
+export function Composer({
+  refs,
+  onAddLocal,
+  onRemoveRef,
+  onReorderRefs,
+  onClearRefs,
+  onSend,
+  bottomInset = 0,
+}: Props) {
   const [text, setText] = useState('')
-  const [upload, setUpload] = useState<{ blobId: number; blob: Blob; preview: string } | null>(null)
+  const [thumbUrls, setThumbUrls] = useState<Map<number, string>>(new Map())
+  const [draggingIdx, setDraggingIdx] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+
+  useEffect(() => {
+    let cancelled = false
+    const next = new Map<number, string>()
+    Promise.all(
+      refs.map(async (ref) => {
+        const img = await db.images.get(ref.blobId)
+        if (img && !cancelled) next.set(ref.blobId, URL.createObjectURL(img.blob))
+      }),
+    ).then(() => {
+      if (cancelled) return
+      setThumbUrls((prev) => {
+        const out = new Map(prev)
+        for (const [id, url] of out) {
+          if (!next.has(id)) {
+            URL.revokeObjectURL(url)
+            out.delete(id)
+          }
+        }
+        for (const [id, url] of next) out.set(id, url)
+        return out
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [refs])
+
+  useEffect(() => {
+    const urls = thumbUrls
+    return () => {
+      for (const url of urls.values()) URL.revokeObjectURL(url)
+    }
+  }, [thumbUrls])
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > MAX_FILE_SIZE) {
+      toast({ variant: 'destructive', title: '图片过大', description: '请选择 10MB 以内的图片' })
+      e.target.value = ''
+      return
+    }
+    if (refs.length >= MAX_REFS) {
+      toast({ variant: 'destructive', title: '已达上限', description: `最多 ${MAX_REFS} 张参考图` })
+      e.target.value = ''
+      return
+    }
+    onAddLocal(file)
+    e.target.value = ''
+  }
 
   function handleSend() {
     const t = text.trim()
@@ -26,107 +92,136 @@ export function Composer({ onSend, editSource, onClearEdit, onPreviewImage }: Pr
       toast({ variant: 'destructive', title: '提示词过长', description: `请控制在 ${MAX_PROMPT_LEN} 字以内` })
       return
     }
-    onSend(t, { editSourceMessageId: editSource?.messageId, uploadBlob: upload?.blob })
-    if (editSource?.preview) URL.revokeObjectURL(editSource.preview)
-    onClearEdit?.()
+    onSend(t, refs)
     setText('')
-    if (upload) URL.revokeObjectURL(upload.preview)
-    setUpload(null)
+    onClearRefs()
   }
 
-  const showIndicator = editSource != null || upload != null
-  const previewUrl = upload?.preview ?? editSource?.preview ?? null
-  const indicatorLabel = (() => {
-    if (upload != null || editSource?.sourceKind === 'local') return '本地图片'
-    if (editSource != null) {
-      const ts = editSource.sourceCreatedAt
-        ? new Date(editSource.sourceCreatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-        : ''
-      return `引用了 #${editSource.messageId}${ts ? `（生成于 ${ts}）` : ''}`
-    }
-    return ''
-  })()
-
-  function handlePreviewClick() {
-    if (upload != null) {
-      onPreviewImage?.(upload.blobId)
-      return
-    }
-    if (editSource != null) {
-      onPreviewImage?.(editSource.blobId)
-    }
+  function handleDragStart(idx: number, e: React.DragEvent) {
+    setDraggingIdx(idx)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(idx))
   }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleDrop(targetIdx: number, e: React.DragEvent) {
+    e.preventDefault()
+    const from = draggingIdx ?? Number(e.dataTransfer.getData('text/plain'))
+    setDraggingIdx(null)
+    if (Number.isNaN(from) || from === targetIdx) return
+    onReorderRefs(from, targetIdx)
+  }
+
+  function handleRemoveRef(blobId: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    onRemoveRef(blobId)
+  }
+
+  const showIndicator = refs.length > 0
 
   return (
     <div
       style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        transform: `translateY(-${bottomInset}px)`,
         backgroundColor: 'hsl(var(--background))',
         borderTop: '1px solid hsl(var(--border))',
         padding: '0.75rem 0.75rem',
         paddingBottom: `calc(0.75rem + env(safe-area-inset-bottom, 0px))`,
+        zIndex: 50,
       }}
+      className="md:left-64"
     >
       {showIndicator && (
-        <div className="flex items-center gap-3 mb-2 p-2 bg-accent rounded-lg">
-          {previewUrl && (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-2" data-testid="refs-strip">
+          {refs.map((ref, idx) => {
+            const url = thumbUrls.get(ref.blobId)
+            const isDragging = draggingIdx === idx
+            return (
+              <div
+                key={ref.blobId}
+                draggable
+                onDragStart={(e) => handleDragStart(idx, e)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(idx, e)}
+                onDragEnd={() => setDraggingIdx(null)}
+                data-testid="ref-thumb"
+                data-ref-index={idx}
+                data-ref-kind={ref.kind}
+                className={`relative shrink-0 w-16 h-16 rounded border-2 cursor-move ${isDragging ? 'border-primary opacity-50' : 'border-border'}`}
+              >
+                {url && <img src={url} alt="" className="w-full h-full object-cover rounded" />}
+                <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[10px] px-1 rounded-br">
+                  {idx + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => handleRemoveRef(ref.blobId, e)}
+                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                  aria-label="移除参考图"
+                  data-testid="remove-ref"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+                {ref.kind === 'local' && (
+                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] truncate px-1">
+                    {ref.fileName ?? '本地'}
+                  </span>
+                )}
+                {ref.kind === 'chat' && ref.sourceMsgId != null && (
+                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] truncate px-1">
+                    #{ref.sourceMsgId}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+          {refs.length < MAX_REFS && (
             <button
               type="button"
-              onClick={handlePreviewClick}
-              aria-label="查看引用图"
-              className="shrink-0 rounded overflow-hidden border border-border h-14 w-14"
+              onClick={() => fileInputRef.current?.click()}
+              className="shrink-0 w-16 h-16 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary"
+              aria-label="添加参考图"
+              data-testid="add-ref-empty-slot"
             >
-              <img src={previewUrl} alt="引用图" className="w-full h-full object-cover" />
+              <Plus className="w-5 h-5" />
             </button>
           )}
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium">{indicatorLabel}</div>
-            <div className="text-xs text-muted-foreground">点击缩略图查看，点击 × 取消</div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              if (upload) URL.revokeObjectURL(upload.preview)
-              setUpload(null)
-              onClearEdit?.()
-            }}
-            aria-label="取消编辑"
-            className="h-11 w-11 shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </Button>
         </div>
       )}
+      {refs.length === 0 && (
+        <div className="mb-2 text-xs text-muted-foreground" data-testid="empty-hint">
+          编辑模式：添加 1-{MAX_REFS} 张参考图
+        </div>
+      )}
+      <input
+        ref={fileInputRef}
+        id="composer-file-input"
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFile}
+      />
       <div className="flex gap-2 items-end">
-        <input
-          id="composer-file-input"
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={async (e) => {
-            const file = e.target.files?.[0]
-            if (!file) return
-            if (file.size > 10 * 1024 * 1024) {
-              toast({ variant: 'destructive', title: '图片过大', description: '请选择 10MB 以内的图片' })
-              return
-            }
-            const blobId = await addImage(file, file.type || 'image/png')
-            const preview = URL.createObjectURL(file)
-            setUpload({ blobId, blob: file, preview })
-            e.target.value = ''
-          }}
-        />
         <Button
           size="icon"
           variant="outline"
-          onClick={() => document.getElementById('composer-file-input')?.click()}
-          aria-label="上传图片"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="上传参考图"
           className="h-11 w-11 shrink-0"
+          disabled={refs.length >= MAX_REFS}
         >
           <Paperclip className="w-4 h-4" />
         </Button>
         <Textarea
-          placeholder="描述你想要的图像…"
+          placeholder={refs.length > 0 ? `基于 ${refs.length} 张参考图生成...` : '描述你想要的图像…'}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {

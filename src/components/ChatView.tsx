@@ -6,6 +6,7 @@ import { useMessages } from '@/hooks/useMessages'
 import { updateMessageStatus } from '@/lib/repo'
 import { Composer } from './Composer'
 import { MessageBubble } from './MessageBubble'
+import type { ImageRef } from '@/lib/db'
 
 interface Props {
   conversationId: number
@@ -14,11 +15,13 @@ interface Props {
   onSettings: () => void
   onOpenImage: (blobId: number) => void
   onRemoteClick?: (url: string) => void
-  onEdit: (msgId: number) => void
-  onSend: (prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob; size?: string }) => void
-  editSource?: { messageId: number; blobId: number; preview?: string; sourceCreatedAt?: number; sourceKind?: 'local' | 'chat' }
-  onClearEdit?: () => void
-  onPreviewImage?: (blobId: number) => void
+  onReference: (msgId: number) => void
+  onSend: (prompt: string, refs: ImageRef[]) => void
+  refs: ImageRef[]
+  onAddLocal: (file: File) => void
+  onRemoveRef: (blobId: number) => void
+  onReorderRefs: (fromIndex: number, toIndex: number) => void
+  onClearRefs: () => void
   bottomInset?: number
   statusBar?: ReactNode
 }
@@ -46,11 +49,13 @@ export function ChatView({
   onSettings,
   onOpenImage,
   onRemoteClick,
-  onEdit,
+  onReference,
   onSend,
-  editSource,
-  onClearEdit,
-  onPreviewImage,
+  refs,
+  onAddLocal,
+  onRemoveRef,
+  onReorderRefs,
+  onClearRefs,
   bottomInset,
   statusBar,
 }: Props) {
@@ -123,7 +128,7 @@ export function ChatView({
                     message={m}
                     onImageClick={onOpenImage}
                     onRemoteClick={onRemoteClick}
-                    onEdit={onEdit}
+                    onReference={onReference}
                   />
                 ))}
               </div>
@@ -143,10 +148,13 @@ export function ChatView({
       >
         {statusBar}
         <Composer
+          refs={refs}
+          onAddLocal={onAddLocal}
+          onRemoveRef={onRemoveRef}
+          onReorderRefs={onReorderRefs}
+          onClearRefs={onClearRefs}
           onSend={onSend}
-          editSource={editSource}
-          onClearEdit={onClearEdit}
-          onPreviewImage={onPreviewImage}
+          bottomInset={bottomInset}
         />
       </div>
     </div>

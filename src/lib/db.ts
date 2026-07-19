@@ -26,6 +26,13 @@ export interface Conversation {
   providerPresetId: number
 }
 
+export interface ImageRef {
+  blobId: number
+  kind: 'chat' | 'local'
+  sourceMsgId?: number
+  fileName?: string
+}
+
 export interface Message {
   id?: number
   conversationId: number
@@ -33,6 +40,7 @@ export interface Message {
   kind: MessageKind
   prompt?: string
   imageBlobId?: number
+  imageRefs?: ImageRef[]
   remoteImageUrl?: string
   size?: string
   status: MessageStatus
@@ -84,6 +92,12 @@ export class Image2ChatDB extends Dexie {
       images: '++id, createdAt',
     })
     this.version(5).stores({
+      providers: '++id, type, createdAt, baseUrl',
+      conversations: '++id, updatedAt, providerPresetId',
+      messages: '++id, conversationId, createdAt, status',
+      images: '++id, createdAt',
+    })
+    this.version(6).stores({
       providers: '++id, type, createdAt, baseUrl',
       conversations: '++id, updatedAt, providerPresetId',
       messages: '++id, conversationId, createdAt, status',
