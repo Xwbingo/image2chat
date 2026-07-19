@@ -14,7 +14,6 @@ interface Props {
   onSettings: () => void
   onOpenImage: (blobId: number) => void
   onRemoteClick?: (url: string) => void
-  onRetry: (msgId: number) => void
   onEdit: (msgId: number) => void
   onSend: (prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob; size?: string }) => void
   editSource?: { messageId: number; blobId: number; preview?: string; sourceCreatedAt?: number; sourceKind?: 'local' | 'chat' }
@@ -47,7 +46,6 @@ export function ChatView({
   onSettings,
   onOpenImage,
   onRemoteClick,
-  onRetry,
   onEdit,
   onSend,
   editSource,
@@ -125,7 +123,6 @@ export function ChatView({
                     message={m}
                     onImageClick={onOpenImage}
                     onRemoteClick={onRemoteClick}
-                    onRetry={onRetry}
                     onEdit={onEdit}
                   />
                 ))}

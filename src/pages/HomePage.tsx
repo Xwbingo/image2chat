@@ -87,46 +87,6 @@ export function HomePage() {
     }
   }
 
-  async function handleRetry(msgId: number) {
-    const m = await db.messages.get(msgId)
-    if (!m) { console.warn('[retry] message not found', msgId); return }
-    if (m.role !== 'assistant') { console.warn('[retry] not an assistant message', m); return }
-
-    // Find the most recent user message BEFORE this assistant message
-    const prevUser = await db.messages
-      .where('conversationId').equals(m.conversationId)
-      .and((x) => x.role === 'user' && x.createdAt < m.createdAt)
-      .reverse()
-      .sortBy('createdAt')
-    const lastUser = prevUser[0]
-    if (!lastUser?.prompt) {
-      console.warn('[retry] no preceding user message with prompt', { m, lastUser })
-      toast({ variant: 'destructive', title: '无法重试', description: '找不到对应的提示词' })
-      return
-    }
-
-    // If the user message was an edit, find the source image message
-    let editSourceId: number | undefined
-    if (lastUser.kind === 'image_edit_request') {
-      // The source is the assistant image BEFORE the user edit
-      const srcAssistant = await db.messages
-        .where('conversationId').equals(m.conversationId)
-        .and((x) => x.role === 'assistant' && x.createdAt < lastUser.createdAt && x.imageBlobId != null)
-        .reverse()
-        .sortBy('createdAt')
-      const src = srcAssistant[0]
-      if (src?.id != null) editSourceId = src.id
-    }
-
-    console.info('[retry] retrying', { prompt: lastUser.prompt.slice(0, 30), size: m.size, editSourceId })
-    if (editSourceId != null) {
-      toast({ title: '正在以编辑模式重试', description: '基于原图重新生成' })
-    } else {
-      toast({ title: '正在重新生成', description: '使用相同 prompt' })
-    }
-    void handleSend(lastUser.prompt, { editSourceMessageId: editSourceId, size: m.size })
-  }
-
   function handleEdit(msgId: number) {
     db.messages.get(msgId).then((m) => {
       if (m?.imageBlobId != null) {
@@ -169,7 +129,6 @@ export function HomePage() {
               onSettings={() => navigate('/settings')}
               onOpenImage={(blobId) => setViewerBlobId(blobId)}
               onRemoteClick={handleRemoteImageClick}
-              onRetry={handleRetry}
               onEdit={handleEdit}
               onSend={handleSend}
               editSource={editSource}

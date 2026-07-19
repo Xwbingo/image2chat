@@ -34,7 +34,6 @@ function renderChatView(props: Partial<React.ComponentProps<typeof ChatView>> = 
       onBack={() => {}}
       onSettings={() => {}}
       onOpenImage={() => {}}
-      onRetry={() => {}}
       onEdit={() => {}}
       onSend={() => {}}
       statusBar={<div data-testid="status-bar-stub">status</div>}

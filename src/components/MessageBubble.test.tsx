@@ -11,7 +11,6 @@ it('renders user text prompt', () => {
     <MessageBubble
       message={{ id: 1, conversationId: 1, role: 'user', kind: 'text_prompt', prompt: 'hello', status: 'success', createdAt: 0 }}
       onImageClick={() => {}}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )
@@ -28,7 +27,6 @@ it('shows the referenced image in an edit request bubble', async () => {
     <MessageBubble
       message={{ id: 7, conversationId: 1, role: 'user', kind: 'image_edit_request', prompt: 'make it blue', imageBlobId: blobId, status: 'success', createdAt: 0 }}
       onImageClick={() => {}}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )
@@ -42,26 +40,32 @@ it('renders generating placeholder for assistant with status generating', () => 
     <MessageBubble
       message={{ id: 1, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'generating', createdAt: 0 }}
       onImageClick={() => {}}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )
   expect(screen.getByText(/正在创作/i)).toBeInTheDocument()
 })
 
-it('renders failed state with retry button', async () => {
-  const onRetry = vi.fn()
+it('renders failed state with the friendly error message', () => {
   render(
     <MessageBubble
       message={{ id: 5, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'failed', errorCode: '500', createdAt: 0 }}
       onImageClick={() => {}}
-      onRetry={onRetry}
       onEdit={() => {}}
     />,
   )
   expect(screen.getByText(/服务异常/i)).toBeInTheDocument()
-  await userEvent.click(screen.getByText('重试'))
-  expect(onRetry).toHaveBeenCalledWith(5)
+})
+
+it('does not render any retry button on a failed message', () => {
+  render(
+    <MessageBubble
+      message={{ id: 5, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'failed', errorCode: 'network', createdAt: 0 }}
+      onImageClick={() => {}}
+      onEdit={() => {}}
+    />,
+  )
+  expect(screen.queryByText('重试')).not.toBeInTheDocument()
 })
 
 it('uses remote fallback for image actions when blob is missing', async () => {
@@ -71,7 +75,6 @@ it('uses remote fallback for image actions when blob is missing', async () => {
       message={{ id: 6, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'success', remoteImageUrl: 'https://cdn/image.png', createdAt: 0 }}
       onImageClick={() => {}}
       onRemoteClick={onRemoteClick}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )
@@ -80,16 +83,16 @@ it('uses remote fallback for image actions when blob is missing', async () => {
   expect(onRemoteClick).toHaveBeenCalledTimes(2)
 })
 
-it('renders 去设置 button for 401', () => {
+it('renders a hint to update the API key for 401', () => {
   render(
     <MessageBubble
       message={{ id: 5, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'failed', errorCode: '401', createdAt: 0 }}
       onImageClick={() => {}}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )
-  expect(screen.getByText('去设置')).toBeInTheDocument()
+  expect(screen.getByText(/密钥管理/)).toBeInTheDocument()
+  expect(screen.queryByText('去设置')).not.toBeInTheDocument()
 })
 
 it('shows assistant timing metadata when startedAt + completedAt are set', () => {
@@ -101,7 +104,6 @@ it('shows assistant timing metadata when startedAt + completedAt are set', () =>
         startedAt: 1000, completedAt: 1000 + 8000,
       }}
       onImageClick={() => {}}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )
@@ -118,7 +120,6 @@ it('shows user message clock timestamp', () => {
         createdAt: new Date(2026, 6, 19, 9, 5).getTime(),
       }}
       onImageClick={() => {}}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )
@@ -136,11 +137,9 @@ it('shows live "已耗时" counter while assistant is generating', () => {
           status: 'generating', createdAt: startedAt, startedAt,
         }}
         onImageClick={() => {}}
-        onRetry={() => {}}
         onEdit={() => {}}
       />,
     )
-    // Initial tick + first interval tick
     act(() => { vi.advanceTimersByTime(3500) })
     expect(screen.getByText(/已耗时/)).toBeInTheDocument()
     expect(screen.getByText(/已耗时 3 秒/)).toBeInTheDocument()
@@ -169,11 +168,9 @@ it('shows "引用了 #N 张图" with source timestamp for chat-source edit', asy
         createdAt: new Date(2026, 6, 19, 10, 35).getTime(),
       }}
       onImageClick={() => {}}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )
-  // Wait for the card to render (img inside the button)
   expect(await screen.findByAltText('引用图')).toBeInTheDocument()
   expect(screen.getByText(/引用了 #/)).toBeInTheDocument()
   expect(await screen.findByText(/生成于/)).toBeInTheDocument()
@@ -193,7 +190,6 @@ it('shows local upload filename when edit request has no source message id', asy
         status: 'success', createdAt: new Date(2026, 6, 19, 12, 0).getTime(),
       }}
       onImageClick={() => {}}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )
@@ -212,7 +208,6 @@ it('edit source card thumbnail click triggers onImageClick', async () => {
     <MessageBubble
       message={{ id: 14, conversationId: 1, role: 'user', kind: 'image_edit_request', prompt: 'x', imageBlobId: blobId, status: 'success', createdAt: 0 }}
       onImageClick={onImageClick}
-      onRetry={() => {}}
       onEdit={() => {}}
     />,
   )

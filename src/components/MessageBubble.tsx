@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, RefreshCw, Settings as SettingsIcon } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Button } from '@/components/ui/button'
 import { db } from '@/lib/db'
@@ -11,7 +11,6 @@ interface Props {
   message: Message
   onImageClick: (blobId: number) => void
   onRemoteClick?: (url: string) => void
-  onRetry: (msgId: number) => void
   onEdit: (msgId: number) => void
 }
 
@@ -28,11 +27,6 @@ const ERROR_DISPLAY: Record<string, string> = {
   '500': '服务异常，请稍后再试',
   '429': '请求过快，请稍后再试',
   'timeout': '请求超时，请稍后再试',
-}
-
-function isRetryable(errorCode?: string): boolean {
-  if (!errorCode) return true
-  return ['rate_limited', 'server_error', 'network', 'timeout', '500', '429'].includes(errorCode)
 }
 
 function formatDuration(ms: number): string {
@@ -53,7 +47,7 @@ function formatClockShort(ts: number): string {
   })
 }
 
-export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, onEdit }: Props) {
+export function MessageBubble({ message, onImageClick, onRemoteClick, onEdit }: Props) {
   const isUser = message.role === 'user'
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
@@ -196,19 +190,13 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
           </>
         ) : (
           <div className="p-2">
-            <p className="text-sm text-destructive mb-2">
+            <p className="text-sm text-destructive">
               {ERROR_DISPLAY[message.errorCode ?? ''] ?? message.errorCode ?? '生成失败'}
             </p>
-            {isRetryable(message.errorCode) ? (
-              <Button size="sm" variant="outline" onClick={() => message.id != null && onRetry(message.id)}>
-                <RefreshCw className="w-3 h-3 mr-1" /> 重试
-              </Button>
-            ) : message.errorCode === '401' ? (
-              <Button size="sm" variant="outline" onClick={() => location.assign('/settings')}>
-                <SettingsIcon className="w-3 h-3 mr-1" /> 去设置
-              </Button>
-            ) : (
-              <Button size="sm" variant="ghost">我知道了</Button>
+            {message.errorCode === '401' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                请到「密钥管理」更新密钥后重新发送
+              </p>
             )}
           </div>
         )}
