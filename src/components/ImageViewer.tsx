@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { db } from '@/lib/db'
@@ -16,6 +16,7 @@ export function ImageViewer({ blobId, prompt, onClose }: Props) {
   const [url, setUrl] = useState<string | null>(null)
   const [mime, setMime] = useState<string>('image/png')
   const { toast } = useToast()
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (blobId == null) return
@@ -26,6 +27,7 @@ export function ImageViewer({ blobId, prompt, onClose }: Props) {
       currentUrl = createObjectURLSafe(img.blob)
       setMime(img.mimeType)
       setUrl(currentUrl)
+      requestAnimationFrame(() => containerRef.current?.scrollTo({ top: 0 }))
     })
     return () => {
       cancelled = true
@@ -37,16 +39,17 @@ export function ImageViewer({ blobId, prompt, onClose }: Props) {
 
   return (
     <Dialog open={true} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl bg-background p-2 max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl bg-background p-2 max-h-[90vh] flex flex-col gap-2">
         <div
-          className="flex-1 overflow-auto flex items-center justify-center bg-muted/30 rounded min-h-0"
+          ref={containerRef}
+          className="flex-1 overflow-auto flex items-start justify-center bg-muted/30 rounded min-h-0 py-4"
           style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
         >
           {url && (
             <img
               src={url}
               alt="result"
-              className="max-w-full max-h-full object-contain select-none"
+              className="max-w-full object-contain select-none"
               draggable={false}
               style={{ cursor: 'grab', touchAction: 'pinch-zoom' }}
             />
