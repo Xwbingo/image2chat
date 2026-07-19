@@ -1,15 +1,17 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Trash2, Edit, Plus, Zap } from 'lucide-react'
+import { Trash2, Edit, Plus, Zap, MessageSquare } from 'lucide-react'
 import { useProviders } from '@/hooks/useProviders'
 import { addProvider, updateProvider, deleteProvider } from '@/lib/repo'
 import { db, type ProviderPreset } from '@/lib/db'
 import { useToast } from '@/components/ui/use-toast'
+import { useSession } from '@/stores/useSession'
 import { validateApiKey } from '@/lib/api/validate'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -17,12 +19,23 @@ import { zhCN } from 'date-fns/locale'
 export function SettingsPage() {
   const providers = useProviders()
   const { toast } = useToast()
+  const navigate = useNavigate()
+  const { setActiveProviderId } = useSession()
   const [editing, setEditing] = useState<{ id: number; key: string } | null>(null)
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
   const [key, setKey] = useState('')
   const [testingId, setTestingId] = useState<number | null>(null)
+
+  async function handleStartChat(p: ProviderPreset & { id: number }) {
+    if (!p.apiKey.trim()) {
+      toast({ variant: 'destructive', title: '请先填写密钥', description: '未配置密钥的中转站无法使用' })
+      return
+    }
+    setActiveProviderId(p.id)
+    navigate('/')
+  }
 
   async function saveAdd() {
     if (!name.trim() || !url.trim()) return
@@ -93,6 +106,15 @@ export function SettingsPage() {
                   aria-label="测试密钥"
                 >
                   <Zap className="w-3 h-3 mr-1" /> 测试
+                </Button>
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => p.id != null && handleStartChat({ ...p, id: p.id })}
+                  disabled={!p.apiKey.trim()}
+                  aria-label="开始聊天"
+                >
+                  <MessageSquare className="w-3 h-3 mr-1" /> 开始聊天
                 </Button>
                 {p.isBuiltIn === 0 && (
                   <Button size="sm" variant="outline" onClick={() => p.id != null && deleteProvider(p.id)}>

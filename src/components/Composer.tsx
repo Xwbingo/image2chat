@@ -206,7 +206,7 @@ export function Composer({
         type="file"
         accept="image/*"
         multiple
-        className="hidden"
+        className="sr-only"
         onChange={handleFile}
       />
       <div className="flex gap-2 items-end">

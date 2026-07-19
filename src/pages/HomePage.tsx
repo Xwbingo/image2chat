@@ -185,7 +185,7 @@ export function HomePage() {
         </main>
       </div>
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="left" className="p-0 w-64">
+        <SheetContent side="left" showCloseButton={false} className="p-0 w-64">
           <Sidebar activeId={conversationId} onSelect={(id) => { setDrawerOpen(false); navigate(`/c/${id}`) }} onNew={handleNew} />
         </SheetContent>
       </Sheet>

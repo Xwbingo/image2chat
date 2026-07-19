@@ -23,45 +23,51 @@ export async function countProviders(): Promise<number> {
 }
 
 export async function seedBuiltinProviders(): Promise<void> {
-  const existing = await db.providers.toArray()
-  const have = new Set(existing.map((p) => p.type))
-  const now = Date.now()
-  if (!have.has('packy')) {
-    await db.providers.add({
-      name: BUILTIN_PROVIDERS.packy.name,
-      baseUrl: BUILTIN_PROVIDERS.packy.baseUrl,
-      apiKey: '', type: 'packy', isBuiltIn: 1, createdAt: now,
-    })
-  }
-  if (!have.has('runapi')) {
-    await db.providers.add({
-      name: BUILTIN_PROVIDERS.runapi.name,
-      baseUrl: BUILTIN_PROVIDERS.runapi.baseUrl,
-      apiKey: '', type: 'runapi', isBuiltIn: 1, createdAt: now + 1,
-    })
-  }
+  await db.transaction('rw', db.providers, async () => {
+    const existing = await db.providers.toArray()
+    const have = new Set(existing.map((p) => p.type))
+    const now = Date.now()
+    if (!have.has('packy')) {
+      await db.providers.add({
+        name: BUILTIN_PROVIDERS.packy.name,
+        baseUrl: BUILTIN_PROVIDERS.packy.baseUrl,
+        apiKey: '', type: 'packy', isBuiltIn: 1, createdAt: now,
+      })
+    }
+    if (!have.has('runapi')) {
+      await db.providers.add({
+        name: BUILTIN_PROVIDERS.runapi.name,
+        baseUrl: BUILTIN_PROVIDERS.runapi.baseUrl,
+        apiKey: '', type: 'runapi', isBuiltIn: 1, createdAt: now + 1,
+      })
+    }
+  })
 }
 
 export async function dedupeProviders(): Promise<number> {
-  const all = await db.providers.toArray()
-  all.sort((a, b) => {
-    const ak = a.apiKey.length > 0 ? 0 : 1
-    const bk = b.apiKey.length > 0 ? 0 : 1
-    if (ak !== bk) return ak - bk
-    return (a.id ?? 0) - (b.id ?? 0)
-  })
-  const seen = new Map<string, ProviderPreset>()
-  const toDelete: number[] = []
-  for (const p of all) {
-    const key = `${p.baseUrl}|${p.name}`
-    if (seen.has(key)) {
-      toDelete.push(p.id!)
-    } else {
-      seen.set(key, p)
+  return db.transaction('rw', db.providers, async () => {
+    const all = await db.providers.toArray()
+    const seen = new Map<string, ProviderPreset>()
+    const toDelete: number[] = []
+    all.sort((a, b) => {
+      const ak = a.apiKey.length > 0 ? 0 : 1
+      const bk = b.apiKey.length > 0 ? 0 : 1
+      if (ak !== bk) return ak - bk
+      return (a.id ?? 0) - (b.id ?? 0)
+    })
+    for (const p of all) {
+      const key = (p.type === 'packy' || p.type === 'runapi')
+        ? `builtin:${p.type}`
+        : `custom:${p.baseUrl}`
+      if (seen.has(key)) {
+        toDelete.push(p.id!)
+      } else {
+        seen.set(key, p)
+      }
     }
-  }
-  if (toDelete.length > 0) await db.providers.bulkDelete(toDelete)
-  return toDelete.length
+    if (toDelete.length > 0) await db.providers.bulkDelete(toDelete)
+    return toDelete.length
+  })
 }
 
 export async function addConversation(providerPresetId: number, title = '新对话'): Promise<number> {
