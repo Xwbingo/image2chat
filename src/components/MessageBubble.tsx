@@ -34,6 +34,19 @@ function isRetryable(errorCode?: string): boolean {
   return ['rate_limited', 'server_error', 'network', 'timeout', '500', '429'].includes(errorCode)
 }
 
+function formatDuration(ms: number): string {
+  if (ms < 1000) return '1 秒'
+  const sec = Math.round(ms / 1000)
+  if (sec < 60) return `${sec} 秒`
+  const min = Math.floor(sec / 60)
+  const remSec = sec % 60
+  return `${min} 分 ${remSec} 秒`
+}
+
+function formatClock(ts: number): string {
+  return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
 export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, onEdit }: Props) {
   const isUser = message.role === 'user'
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
@@ -81,12 +94,19 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
               <img src={blobUrl} alt="" className="mt-2 rounded max-w-full" />
             )}
           </div>
+          {message.createdAt ? (
+            <p className="text-xs opacity-70 mt-1">{formatClock(message.createdAt)}</p>
+          ) : null}
         </div>
       </div>
     )
   }
 
   const label = GENERATING_LABELS[tick % GENERATING_LABELS.length]
+  const elapsedMs =
+    message.startedAt != null && message.completedAt != null
+      ? Math.max(0, message.completedAt - message.startedAt)
+      : null
 
   return (
     <div className="flex justify-start mb-3">
@@ -113,6 +133,12 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onRetry, o
               <Button size="sm" variant="outline" onClick={() => message.imageBlobId != null ? onImageClick(message.imageBlobId) : message.remoteImageUrl && onRemoteClick?.(message.remoteImageUrl)}>查看</Button>
               <Button size="sm" variant="outline" onClick={() => message.id != null && onEdit(message.id)}>编辑</Button>
             </div>
+            {(message.size || elapsedMs != null) && (
+              <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
+                {message.size && <span>{message.size}</span>}
+                {elapsedMs != null && <span>耗时 {formatDuration(elapsedMs)}</span>}
+              </div>
+            )}
           </>
         ) : (
           <div className="p-2">

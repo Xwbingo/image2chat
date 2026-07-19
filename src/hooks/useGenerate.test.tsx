@@ -150,3 +150,33 @@ it('text prompt leaves user imageBlobId undefined', async () => {
   expect(user.kind).toBe('text_prompt')
   expect(user.imageBlobId).toBeUndefined()
 })
+
+it('success path records startedAt and completedAt for elapsed-time display', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
+    HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] }),
+  ))
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+
+  const { generate } = useGenerate()
+  await generate(cid, 'timed', '1024x1024')
+  const assistant = (await db.messages.toArray()).find((m) => m.role === 'assistant')!
+  expect(assistant.startedAt).toBeGreaterThan(0)
+  expect(assistant.completedAt).toBeGreaterThan(0)
+  expect(assistant.completedAt).toBeGreaterThanOrEqual(assistant.startedAt!)
+})
+
+it('failure path records completedAt so elapsed-time still renders', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
+    new HttpResponse('', { status: 500 }),
+  ))
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+
+  const { generate } = useGenerate()
+  await generate(cid, 'will fail', '1024x1024')
+  const assistant = (await db.messages.toArray()).find((m) => m.role === 'assistant')!
+  expect(assistant.status).toBe('failed')
+  expect(assistant.startedAt).toBeGreaterThan(0)
+  expect(assistant.completedAt).toBeGreaterThan(0)
+})

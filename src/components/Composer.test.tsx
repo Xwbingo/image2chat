@@ -1,6 +1,11 @@
+import 'fake-indexeddb/auto'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Composer } from './Composer'
+import { db } from '@/lib/db'
+import { beforeEach } from 'vitest'
+
+beforeEach(async () => { await db.delete(); await db.open() })
 
 it('calls onSend with trimmed prompt', async () => {
   const onSend = vi.fn()
@@ -65,7 +70,7 @@ it('passes an uploaded image as an edit source', async () => {
   vi.unstubAllGlobals()
 })
 
-it('shows "正在基于本地图片编辑" indicator when upload is set', async () => {
+it('shows "本地图片" indicator when upload is set', async () => {
   vi.stubGlobal('URL', {
     createObjectURL: vi.fn().mockReturnValue('blob:preview'),
     revokeObjectURL: vi.fn(),
@@ -74,13 +79,50 @@ it('shows "正在基于本地图片编辑" indicator when upload is set', async 
   const input = container.querySelector('input[type="file"]') as HTMLInputElement
   const file = new File([new Uint8Array([1, 2, 3])], 'test.png', { type: 'image/png' })
   await userEvent.upload(input, file)
-  expect(await screen.findByText('正在基于本地图片编辑')).toBeInTheDocument()
+  expect(await screen.findByText('本地图片')).toBeInTheDocument()
   vi.unstubAllGlobals()
 })
 
-it('shows "正在编辑引用图" indicator when editSource provided', () => {
-  render(<Composer onSend={() => {}} editSource={{ messageId: 1, blobId: 1, preview: 'blob:src' }} onClearEdit={() => {}} />)
-  expect(screen.getByText('正在编辑引用图')).toBeInTheDocument()
+it('shows "引用了 #N（生成于 xx）" indicator when chat editSource provided', () => {
+  render(
+    <Composer
+      onSend={() => {}}
+      editSource={{ messageId: 1, blobId: 1, preview: 'blob:src', sourceCreatedAt: new Date('2026-07-19T10:30:00').getTime(), sourceKind: 'chat' }}
+      onClearEdit={() => {}}
+    />,
+  )
+  expect(screen.getByText(/引用了 #1/)).toBeInTheDocument()
+  expect(screen.getByText(/生成于/)).toBeInTheDocument()
+})
+
+it('shows "本地图片" indicator when editSource is local kind', () => {
+  render(
+    <Composer
+      onSend={() => {}}
+      editSource={{ messageId: 1, blobId: 1, preview: 'blob:src', sourceKind: 'local' }}
+      onClearEdit={() => {}}
+    />,
+  )
+  expect(screen.getByText('本地图片')).toBeInTheDocument()
+})
+
+it('thumbnail click triggers onPreviewImage with blobId', async () => {
+  vi.stubGlobal('URL', {
+    createObjectURL: vi.fn().mockReturnValue('blob:preview'),
+    revokeObjectURL: vi.fn(),
+  })
+  const onPreviewImage = vi.fn()
+  render(
+    <Composer
+      onSend={() => {}}
+      editSource={{ messageId: 5, blobId: 42, preview: 'blob:src', sourceKind: 'chat' }}
+      onClearEdit={() => {}}
+      onPreviewImage={onPreviewImage}
+    />,
+  )
+  await userEvent.click(screen.getByRole('button', { name: '查看引用图' }))
+  expect(onPreviewImage).toHaveBeenCalledWith(42)
+  vi.unstubAllGlobals()
 })
 
 it('cancel button clears both upload and editSource', async () => {
@@ -89,8 +131,8 @@ it('cancel button clears both upload and editSource', async () => {
     revokeObjectURL: vi.fn(),
   })
   const onClearEdit = vi.fn()
-  const { container } = render(<Composer onSend={() => {}} editSource={{ messageId: 1, blobId: 1, preview: 'blob:src' }} onClearEdit={onClearEdit} />)
-  expect(screen.getByText('正在编辑引用图')).toBeInTheDocument()
+  render(<Composer onSend={() => {}} editSource={{ messageId: 1, blobId: 1, preview: 'blob:src' }} onClearEdit={onClearEdit} />)
+  expect(screen.getByText(/引用了 #1/)).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: '取消编辑' }))
   expect(onClearEdit).toHaveBeenCalled()
   vi.unstubAllGlobals()

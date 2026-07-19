@@ -23,7 +23,7 @@ export function HomePage() {
   const { setActiveProviderId } = useSession()
   const { generate } = useGenerate()
   const { toast } = useToast()
-  const [editSource, setEditSource] = useState<{ messageId: number; blobId: number; preview?: string } | undefined>()
+  const [editSource, setEditSource] = useState<{ messageId: number; blobId: number; preview?: string; sourceCreatedAt?: number; sourceKind?: 'local' | 'chat' } | undefined>()
   const [viewerBlobId, setViewerBlobId] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [bottomInset, setBottomInset] = useState(0)
@@ -58,12 +58,12 @@ export function HomePage() {
     setEditSource(undefined)
   }
 
-  async function loadEditSource(msgId: number, blobId: number) {
+  async function loadEditSource(msgId: number, blobId: number, sourceCreatedAt?: number, sourceKind: 'chat' | 'local' = 'chat') {
     const img = await db.images.get(blobId)
     if (!img) return
     if (editSource?.preview) URL.revokeObjectURL(editSource.preview)
     const preview = URL.createObjectURL(img.blob)
-    setEditSource({ messageId: msgId, blobId: blobId, preview })
+    setEditSource({ messageId: msgId, blobId: blobId, preview, sourceCreatedAt, sourceKind })
   }
 
   async function handleNew() {
@@ -79,7 +79,7 @@ export function HomePage() {
     if (opts?.editSourceMessageId != null && opts.uploadBlob == null) {
       const srcMsg = await db.messages.get(opts.editSourceMessageId)
       if (srcMsg?.imageBlobId != null) {
-        void loadEditSource(opts.editSourceMessageId, srcMsg.imageBlobId)
+        void loadEditSource(opts.editSourceMessageId, srcMsg.imageBlobId, srcMsg.createdAt, 'chat')
       }
     }
     const finalSize = opts?.size ?? useSession.getState().defaultSize
@@ -136,7 +136,7 @@ export function HomePage() {
   function handleEdit(msgId: number) {
     db.messages.get(msgId).then((m) => {
       if (m?.imageBlobId != null) {
-        void loadEditSource(msgId, m.imageBlobId)
+        void loadEditSource(msgId, m.imageBlobId, m.createdAt, 'chat')
       }
     })
   }
@@ -172,6 +172,7 @@ export function HomePage() {
             <ChatView
               conversationId={conversationId}
               onBack={() => navigate('/')}
+              onSettings={() => navigate('/settings')}
               onOpenImage={(blobId) => setViewerBlobId(blobId)}
               onRemoteClick={handleRemoteImageClick}
               onRetry={handleRetry}
@@ -179,6 +180,7 @@ export function HomePage() {
               onSend={handleSend}
               editSource={editSource}
               onClearEdit={clearEdit}
+              onPreviewImage={(blobId) => setViewerBlobId(blobId)}
               bottomInset={bottomInset}
               statusBar={<StatusBar activeConversationId={conversationId} />}
             />

@@ -3,18 +3,20 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Send, Paperclip, X } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import { addImage } from '@/lib/repo'
 
 const MAX_PROMPT_LEN = 4000
 
 interface Props {
   onSend: (prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob }) => void
-  editSource?: { messageId: number; blobId: number; preview?: string }
+  editSource?: { messageId: number; blobId: number; preview?: string; sourceCreatedAt?: number; sourceKind?: 'local' | 'chat' }
   onClearEdit?: () => void
+  onPreviewImage?: (blobId: number) => void
 }
 
-export function Composer({ onSend, editSource, onClearEdit }: Props) {
+export function Composer({ onSend, editSource, onClearEdit, onPreviewImage }: Props) {
   const [text, setText] = useState('')
-  const [upload, setUpload] = useState<{ blob: Blob; preview: string } | null>(null)
+  const [upload, setUpload] = useState<{ blobId: number; blob: Blob; preview: string } | null>(null)
   const { toast } = useToast()
 
   function handleSend() {
@@ -32,11 +34,26 @@ export function Composer({ onSend, editSource, onClearEdit }: Props) {
 
   const showIndicator = editSource != null || upload != null
   const previewUrl = upload?.preview ?? editSource?.preview ?? null
-  const indicatorLabel = upload != null
-    ? '正在基于本地图片编辑'
-    : editSource != null
-      ? '正在编辑引用图'
-      : ''
+  const indicatorLabel = (() => {
+    if (upload != null || editSource?.sourceKind === 'local') return '本地图片'
+    if (editSource != null) {
+      const ts = editSource.sourceCreatedAt
+        ? new Date(editSource.sourceCreatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : ''
+      return `引用了 #${editSource.messageId}${ts ? `（生成于 ${ts}）` : ''}`
+    }
+    return ''
+  })()
+
+  function handlePreviewClick() {
+    if (upload != null) {
+      onPreviewImage?.(upload.blobId)
+      return
+    }
+    if (editSource != null) {
+      onPreviewImage?.(editSource.blobId)
+    }
+  }
 
   return (
     <div
@@ -50,15 +67,18 @@ export function Composer({ onSend, editSource, onClearEdit }: Props) {
       {showIndicator && (
         <div className="flex items-center gap-3 mb-2 p-2 bg-accent rounded-lg">
           {previewUrl && (
-            <img
-              src={previewUrl}
-              alt="引用图"
-              className="w-14 h-14 rounded object-cover border border-border shrink-0"
-            />
+            <button
+              type="button"
+              onClick={handlePreviewClick}
+              aria-label="查看引用图"
+              className="shrink-0 rounded overflow-hidden border border-border h-14 w-14"
+            >
+              <img src={previewUrl} alt="引用图" className="w-full h-full object-cover" />
+            </button>
           )}
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium">{indicatorLabel}</div>
-            <div className="text-xs text-muted-foreground">点击 × 取消</div>
+            <div className="text-xs text-muted-foreground">点击缩略图查看，点击 × 取消</div>
           </div>
           <Button
             variant="ghost"
@@ -81,15 +101,16 @@ export function Composer({ onSend, editSource, onClearEdit }: Props) {
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(e) => {
+          onChange={async (e) => {
             const file = e.target.files?.[0]
             if (!file) return
             if (file.size > 10 * 1024 * 1024) {
               toast({ variant: 'destructive', title: '图片过大', description: '请选择 10MB 以内的图片' })
               return
             }
+            const blobId = await addImage(file, file.type || 'image/png')
             const preview = URL.createObjectURL(file)
-            setUpload({ blob: file, preview })
+            setUpload({ blobId, blob: file, preview })
             e.target.value = ''
           }}
         />

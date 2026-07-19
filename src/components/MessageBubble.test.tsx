@@ -91,3 +91,36 @@ it('renders 去设置 button for 401', () => {
   )
   expect(screen.getByText('去设置')).toBeInTheDocument()
 })
+
+it('shows assistant timing metadata when startedAt + completedAt are set', () => {
+  render(
+    <MessageBubble
+      message={{
+        id: 9, conversationId: 1, role: 'assistant', kind: 'image_result',
+        size: '1024x1024', status: 'success', createdAt: 1000,
+        startedAt: 1000, completedAt: 1000 + 7500,
+      }}
+      onImageClick={() => {}}
+      onRetry={() => {}}
+      onEdit={() => {}}
+    />,
+  )
+  expect(screen.getByText('1024x1024')).toBeInTheDocument()
+  expect(screen.getByText('耗时 8 秒')).toBeInTheDocument()
+})
+
+it('shows user message clock timestamp', () => {
+  render(
+    <MessageBubble
+      message={{
+        id: 10, conversationId: 1, role: 'user', kind: 'text_prompt',
+        prompt: 'hi', status: 'success',
+        createdAt: new Date(2026, 6, 19, 9, 5).getTime(),
+      }}
+      onImageClick={() => {}}
+      onRetry={() => {}}
+      onEdit={() => {}}
+    />,
+  )
+  expect(screen.getByText('09:05')).toBeInTheDocument()
+})

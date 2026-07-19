@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useMessages } from '@/hooks/useMessages'
 import { updateMessageStatus } from '@/lib/repo'
@@ -11,21 +11,27 @@ interface Props {
   conversationId: number
   title?: string
   onBack: () => void
+  onSettings: () => void
   onOpenImage: (blobId: number) => void
   onRemoteClick?: (url: string) => void
   onRetry: (msgId: number) => void
   onEdit: (msgId: number) => void
   onSend: (prompt: string, opts?: { editSourceMessageId?: number; uploadBlob?: Blob; size?: string }) => void
-  editSource?: { messageId: number; blobId: number; preview?: string }
+  editSource?: { messageId: number; blobId: number; preview?: string; sourceCreatedAt?: number; sourceKind?: 'local' | 'chat' }
   onClearEdit?: () => void
+  onPreviewImage?: (blobId: number) => void
   bottomInset?: number
   statusBar?: ReactNode
 }
+
+const SIDEBAR_PX = 256
+const MD_BREAKPOINT = 768
 
 export function ChatView({
   conversationId,
   title,
   onBack,
+  onSettings,
   onOpenImage,
   onRemoteClick,
   onRetry,
@@ -33,11 +39,21 @@ export function ChatView({
   onSend,
   editSource,
   onClearEdit,
+  onPreviewImage,
   bottomInset,
   statusBar,
 }: Props) {
   const messages = useMessages(conversationId)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [leftOffset, setLeftOffset] = useState(0)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const update = () => setLeftOffset(window.innerWidth >= MD_BREAKPOINT ? SIDEBAR_PX : 0)
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   useEffect(() => {
     const STALE = 5 * 60 * 1000
@@ -59,7 +75,10 @@ export function ChatView({
         <Button size="icon" variant="ghost" onClick={onBack} aria-label="back">
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <h2 className="font-semibold truncate">{title ?? `会话 #${conversationId}`}</h2>
+        <h2 className="font-semibold truncate flex-1">{title ?? `会话 #${conversationId}`}</h2>
+        <Button size="icon" variant="ghost" onClick={onSettings} aria-label="密钥管理">
+          <Settings className="w-4 h-4" />
+        </Button>
       </header>
       <div
         ref={scrollRef}
@@ -84,16 +103,20 @@ export function ChatView({
       <div
         style={{
           position: 'fixed',
-          left: 0,
+          left: leftOffset,
           right: 0,
           bottom: 0,
           transform: `translateY(-${bottomInset ?? 0}px)`,
           zIndex: 40,
         }}
-        className="md:left-64"
       >
         {statusBar}
-        <Composer onSend={onSend} editSource={editSource} onClearEdit={onClearEdit} />
+        <Composer
+          onSend={onSend}
+          editSource={editSource}
+          onClearEdit={onClearEdit}
+          onPreviewImage={onPreviewImage}
+        />
       </div>
     </div>
   )

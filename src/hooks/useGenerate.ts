@@ -20,6 +20,10 @@ function base64ToBlob(b64: string, mime = 'image/png'): Blob {
   return new Blob([arr], { type: mime })
 }
 
+async function setMessageTiming(id: number, startedAt?: number, completedAt?: number) {
+  await db.messages.update(id, { startedAt, completedAt })
+}
+
 export function useGenerate() {
   return {
     generate: useCallback(async (
@@ -30,6 +34,7 @@ export function useGenerate() {
       uploadBlob?: Blob,
     ): Promise<GenerateResult> => {
       let assistantId: number | undefined
+      let startedAt: number | undefined
       try {
         const conv = await db.conversations.get(conversationId)
         if (!conv) return { error: { kind: 'bad_request', message: '会话不存在' } }
@@ -51,9 +56,10 @@ export function useGenerate() {
           imageBlobId: userImageBlobId,
           status: 'success', createdAt: now,
         })
+        startedAt = now + 1
         assistantId = await addMessage({
           conversationId, role: 'assistant', kind: 'image_result',
-          size, status: 'generating', createdAt: now + 1,
+          size, status: 'generating', createdAt: startedAt, startedAt,
         })
         await touchConversation(conversationId)
 
@@ -74,12 +80,16 @@ export function useGenerate() {
         const blob = base64ToBlob(b64)
         const bid = await addImage(blob, 'image/png')
         await setMessageBlobId(assistantId, bid)
+        await setMessageTiming(assistantId, startedAt, Date.now())
         await updateMessageStatus(assistantId, 'success')
         return { messageId: assistantId }
       } catch (e: unknown) {
         const err: ApiError = isApiError(e) ? e : parseNetworkError(e)
         if (assistantId != null) {
-          try { await updateMessageStatus(assistantId, 'failed', err.kind) } catch { }
+          try {
+            await setMessageTiming(assistantId, startedAt, Date.now())
+            await updateMessageStatus(assistantId, 'failed', err.kind)
+          } catch { }
         }
         return { error: err }
       }

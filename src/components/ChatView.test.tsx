@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, vi } from 'vitest'
 import { db } from '@/lib/db'
 import { ChatView } from './ChatView'
@@ -27,6 +28,7 @@ function renderChatView(props: Partial<React.ComponentProps<typeof ChatView>> = 
     <ChatView
       conversationId={1}
       onBack={() => {}}
+      onSettings={() => {}}
       onOpenImage={() => {}}
       onRetry={() => {}}
       onEdit={() => {}}
@@ -47,16 +49,17 @@ it('pins statusBar and Composer in a single fixed container at viewport bottom',
   expect(container).toBe(status.parentElement)
   expect(container).toHaveStyle({
     position: 'fixed',
-    left: '0px',
     right: '0px',
     bottom: '0px',
   })
 })
 
-it('uses md:left-64 on the fixed container so the desktop sidebar stays visible', () => {
+it('uses inline left offset (px) on the fixed container so the desktop sidebar stays visible', () => {
+  // jsdom defaults window.innerWidth to 1024 → ≥768 → expect 256px sidebar inset
   renderChatView()
   const container = screen.getByTestId('status-bar-stub').parentElement
-  expect(container).toHaveClass('md:left-64')
+  expect(container).toHaveStyle({ left: '256px' })
+  expect(container).not.toHaveClass('md:left-64')
 })
 
 it('applies the bottomInset translateY on the shared bottom container', () => {
@@ -77,4 +80,11 @@ it('places StatusBar above the Composer in source order so the Composer never co
   expect(statusIdx).toBeLessThan(composerIdx)
   expect(statusIdx).toBeGreaterThanOrEqual(0)
   expect(composerIdx).toBeGreaterThanOrEqual(0)
+})
+
+it('renders a settings icon button in the header that triggers onSettings', async () => {
+  const onSettings = vi.fn()
+  renderChatView({ onSettings })
+  await userEvent.click(screen.getByRole('button', { name: '密钥管理' }))
+  expect(onSettings).toHaveBeenCalledTimes(1)
 })
