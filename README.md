@@ -126,18 +126,32 @@ npm run build
 
 ### CORS 代理（高级）
 
-部分中转站（如 RunAPI）未配置 `Access-Control-Allow-Origin` 头，浏览器 fetch 会被 CORS 策略拦截。解决：
+部分中转站（如 RunAPI）未配置 `Access-Control-Allow-Origin` 头，浏览器 fetch 会被 CORS 策略拦截。**默认无代理**——只有当某中转站真不通 CORS 时才在「密钥管理」对应卡片里手动启用，应用不会强制全局走代理。
 
-1. 部署一个 Cloudflare Worker（推荐，10 万次/天免费）
+两种部署方式二选一，也可以混用（每个中转站独立配置）：
+
+#### 方式 A：自托管（推荐，与站点同源）
+
+仓库自带 `functions/api/cors.ts`，是 Cloudflare Pages Functions。部署到 Cloudflare Pages 后自动挂在 `/api/cors`，与站点同源、绝对不被墙。
+
+「密钥管理 → CORS 代理」填：
+
+```
+/api/cors
+```
+
+#### 方式 B：Cloudflare Worker（独立部署）
+
+适合还没迁到 Cloudflare Pages、或想给多个域名共享代理的场景。
+
+1. 部署一个独立 Worker（10 万次/天免费）
 2. 在「密钥管理」对应中转站的「CORS 代理」字段填入 worker URL，例如：
 
    ```
    https://your-proxy.workers.dev/?
    ```
 
-3. 应用会自动把所有请求通过代理转发，请求会自动追加 `?url=<encoded>` 后缀
-
-**Cloudflare Worker 示例代码**（5 行核心逻辑，30 秒完成）：
+**Worker 示例代码**（5 行核心逻辑，30 秒完成）：
 
 ```javascript
 export default {
@@ -155,6 +169,15 @@ export default {
   },
 };
 ```
+
+#### 行为说明
+
+应用调用 `applyCorsProxy()`（`src/lib/api/proxy.ts`）——「CORS 代理」字段非空才把请求 URL 包成 `<proxy>?url=<encoded>`，否则直连目标服务器。所以：
+
+- 字段留空 → 直连，不走代理（默认）
+- 填了 `/api/cors`（方式 A）→ 同源转发，免被墙
+- 填了 `https://xxx.workers.dev/?`（方式 B）→ 走外部 Worker
+- 不同中转站可填不同代理，互不影响
 
 ---
 
