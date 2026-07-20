@@ -22,3 +22,31 @@ it('lists conversations and calls onSelect on click', async () => {
   await userEvent.click(screen.getByText('Alpha'))
   expect(onSelect).toHaveBeenCalledWith(expect.any(Number))
 })
+
+it('renders new-chat as theme card with purple gradient', () => {
+  const { container } = render(<Sidebar onSelect={() => {}} onNew={() => {}} />)
+  const card = screen.getByText('新建对话').closest('[data-card]')
+  expect(card).toBeInTheDocument()
+  expect(card).toHaveStyle({ backgroundImage: 'var(--gradient-purple)' })
+})
+
+it('renders settings link as theme card with cyan gradient', () => {
+  render(<Sidebar onSelect={() => {}} onNew={() => {}} />)
+  const card = screen.getByText('管理密钥').closest('[data-card]')
+  expect(card).toBeInTheDocument()
+  expect(card).toHaveStyle({ backgroundImage: 'var(--gradient-cyan)' })
+})
+
+it('shows amber left bar for conversations with generating messages', async () => {
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 })
+  const cid = (await db.conversations.add({ title: 'Alpha', createdAt: 0, updatedAt: 1, providerPresetId: pid })) as number
+  await db.messages.add({
+    conversationId: cid, role: 'assistant', prompt: 'x',
+    status: 'generating', kind: 'image_generation', createdAt: Date.now(),
+  })
+  render(<Sidebar onSelect={() => {}} onNew={() => {}} activeId={cid} />)
+  await vi.waitFor(() => {
+    const item = screen.getByText('Alpha').closest('[data-conversation]')
+    expect(item).toHaveStyle({ '--bar-color': 'var(--status-generating-bar)' })
+  })
+})
