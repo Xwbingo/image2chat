@@ -62,6 +62,7 @@ export function ChatView({
   const messages = useMessages(conversationId)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [leftOffset, setLeftOffset] = useState(0)
+  const hasGenerating = messages.some((m) => m.status === 'generating')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -155,6 +156,7 @@ export function ChatView({
           onReorderRefs={onReorderRefs}
           onClearRefs={onClearRefs}
           onSend={onSend}
+          disabled={hasGenerating}
         />
       </div>
     </div>

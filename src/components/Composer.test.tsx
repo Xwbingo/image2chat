@@ -224,3 +224,14 @@ it('handles very long prompts by toasting and not sending', async () => {
   await userEvent.click(screen.getByText('发送'))
   expect(onSend).not.toHaveBeenCalled()
 })
+
+it('Send button is disabled and Enter is ignored when disabled prop is true', async () => {
+  const { onSend } = setup({ disabled: true })
+  const textarea = screen.getByPlaceholderText(/描述你想要的图像/) as HTMLTextAreaElement
+  fireEvent.change(textarea, { target: { value: 'a cat' } })
+  const sendBtn = screen.getByRole('button', { name: '发送' }) as HTMLButtonElement
+  expect(sendBtn).toBeDisabled()
+  // Try keyboard Enter: should still no-op while disabled.
+  fireEvent.keyDown(textarea, { key: 'Enter' })
+  expect(onSend).not.toHaveBeenCalled()
+})

@@ -135,3 +135,31 @@ export async function getMessage(id: number): Promise<Message | undefined> {
 export async function addImage(blob: Blob, mimeType: string): Promise<number> {
   return db.images.add({ blob, mimeType, createdAt: Date.now() })
 }
+
+/**
+ * Sweep all `generating` messages that are older than `staleMs` and mark
+ * them `failed/timeout`. Scoped globally (not per-conversation) so that
+ * a tab which was closed mid-request on conversation A still gets
+ * cleaned up the next time the user opens the app at all.
+ *
+ * Used by HomePage on mount. The per-conversation check inside
+ * ChatView (5-min stale sweep on messages-change) is kept as a fast
+ * path while you're actively browsing a conversation.
+ */
+export async function markStaleGeneratingAsFailed(staleMs: number): Promise<number> {
+  const cutoff = Date.now() - staleMs
+  const stale = await db.messages
+    .where('status').equals('generating')
+    .and((m) => m.createdAt < cutoff)
+    .toArray()
+  for (const m of stale) {
+    if (m.id != null) {
+      await db.messages.update(m.id, {
+        status: 'failed',
+        errorCode: 'timeout',
+        completedAt: Date.now(),
+      })
+    }
+  }
+  return stale.length
+}

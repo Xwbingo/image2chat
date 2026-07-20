@@ -5,6 +5,7 @@ import {
   addProvider, countProviders, seedBuiltinProviders, dedupeProviders,
   addConversation, addMessage, updateMessageStatus, getMessage,
   addImage, setMessageBlobId, deleteConversation,
+  markStaleGeneratingAsFailed,
 } from './repo'
 
 beforeEach(async () => {
@@ -97,5 +98,40 @@ describe('deleteConversation', () => {
     await deleteConversation(cid)
     const remaining = await db.messages.where('conversationId').equals(cid).toArray()
     expect(remaining).toEqual([])
+  })
+})
+
+describe('markStaleGeneratingAsFailed', () => {
+  it('marks stale generating messages as failed across all conversations', async () => {
+    const pid = await addProvider({ name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 })
+    const cidA = await addConversation(pid)
+    const cidB = await addConversation(pid)
+    const now = Date.now()
+    const staleA = await addMessage({ conversationId: cidA, role: 'assistant', kind: 'image_result', size: '2048x1152', status: 'generating', createdAt: now - 10 * 60 * 1000, startedAt: now - 10 * 60 * 1000 })
+    const freshA = await addMessage({ conversationId: cidA, role: 'assistant', kind: 'image_result', size: '2048x1152', status: 'generating', createdAt: now, startedAt: now })
+    const staleB = await addMessage({ conversationId: cidB, role: 'assistant', kind: 'image_result', size: '1024x1024', status: 'generating', createdAt: now - 10 * 60 * 1000, startedAt: now - 10 * 60 * 1000 })
+    const succeeded = await addMessage({ conversationId: cidA, role: 'assistant', kind: 'image_result', size: '1024x1024', status: 'success', createdAt: now - 10 * 60 * 1000, completedAt: now - 9 * 60 * 1000 })
+
+    const swept = await markStaleGeneratingAsFailed(5 * 60 * 1000)
+    expect(swept).toBe(2)
+
+    const afterStale = await getMessage(staleA)
+    expect(afterStale?.status).toBe('failed')
+    expect(afterStale?.errorCode).toBe('timeout')
+    expect(afterStale?.completedAt).toBeGreaterThan(0)
+
+    const afterFresh = await getMessage(freshA)
+    expect(afterFresh?.status).toBe('generating')
+
+    const afterStaleB = await getMessage(staleB)
+    expect(afterStaleB?.status).toBe('failed')
+
+    const afterSucceeded = await getMessage(succeeded)
+    expect(afterSucceeded?.status).toBe('success')
+  })
+
+  it('returns 0 when there is nothing to sweep', async () => {
+    const swept = await markStaleGeneratingAsFailed(5 * 60 * 1000)
+    expect(swept).toBe(0)
   })
 })

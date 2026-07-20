@@ -10,7 +10,7 @@ import { Menu } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useProviders } from '@/hooks/useProviders'
 import { useSession } from '@/stores/useSession'
-import { addConversation, addImage } from '@/lib/repo'
+import { addConversation, addImage, markStaleGeneratingAsFailed } from '@/lib/repo'
 import { db, type ImageRef } from '@/lib/db'
 import { useGenerate } from '@/hooks/useGenerate'
 import { useToast } from '@/components/ui/use-toast'
@@ -36,6 +36,15 @@ export function HomePage() {
       if (current == null) setActiveProviderId(providers[0].id!)
     }
   }, [providers.length])
+
+  // Global cleanup: any conversation's 'generating' messages that are
+  // older than 5min (i.e. the tab was closed/refreshed mid-request)
+  // get marked failed. Cheaper than re-attaching the request, and the
+  // user can manually re-send. ChatView still does the same sweep
+  // locally for fast feedback while you're actively viewing a chat.
+  useEffect(() => {
+    void markStaleGeneratingAsFailed(5 * 60 * 1000)
+  }, [])
 
   useEffect(() => {
     const vv = window.visualViewport

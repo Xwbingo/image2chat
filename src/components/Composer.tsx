@@ -16,6 +16,13 @@ interface Props {
   onReorderRefs: (fromIndex: number, toIndex: number) => void
   onClearRefs: () => void
   onSend: (prompt: string, refs: ImageRef[]) => void
+  /**
+   * Disables the Send button independently of the prompt-empty guard.
+   * Parent (ChatView) sets this true while a generation is in flight
+   * in the current conversation, so accidental double-sends don't
+   * spawn phantom `generating` messages on top of each other.
+   */
+  disabled?: boolean
 }
 
 export function Composer({
@@ -25,6 +32,7 @@ export function Composer({
   onReorderRefs,
   onClearRefs,
   onSend,
+  disabled = false,
 }: Props) {
   const [text, setText] = useState('')
   const [thumbUrls, setThumbUrls] = useState<Map<number, string>>(new Map())
@@ -82,6 +90,7 @@ export function Composer({
   }
 
   function handleSend() {
+    if (disabled) return
     const t = text.trim()
     if (!t) return
     if (t.length > MAX_PROMPT_LEN) {
@@ -223,7 +232,7 @@ export function Composer({
         />
         <Button
           onClick={handleSend}
-          disabled={text.trim().length === 0}
+          disabled={disabled || text.trim().length === 0}
           aria-label="发送"
           className="h-11 px-4 shrink-0"
         >
