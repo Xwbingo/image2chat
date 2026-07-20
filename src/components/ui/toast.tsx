@@ -12,14 +12,15 @@ import { cn } from "@/lib/utils"
  *
  * Radix's own default is 5000ms, which is too long for this app's UI:
  * the toast viewport sits at the bottom-right of the viewport, which on
- * PC overlaps the Composer (especially the Send button). 3000ms is
- * long enough to read "密钥有效 ✓" / "图片过大" / "已达上限", short
- * enough that a validation toast from SettingsPage is gone by the time
- * the user reaches the chat composer. Callers can still override with
- * a longer `duration` (e.g. destructive errors that include the API's
- * message body) via the spread props on `<Toast />`.
+ * PC overlaps the Composer (especially the Send button). 2000ms is the
+ * sweet spot for the validation flow in SettingsPage: long enough to
+ * read "密钥有效 ✓" / "无法确认密钥有效", gone well before the user
+ * finishes clicking 开始使用 and lands in the chat composer. Callers
+ * can still override with a longer `duration` (e.g. destructive errors
+ * that include the API's message body) via the spread props on
+ * `<Toast />`.
  */
-const TOAST_DEFAULT_DURATION = 3000
+const TOAST_DEFAULT_DURATION = 2000
 
 const ToastProvider = ToastPrimitives.Provider
 
