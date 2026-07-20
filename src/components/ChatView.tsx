@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button'
 import { useMessages } from '@/hooks/useMessages'
 import { useGenerationProgress } from '@/hooks/useGenerationProgress'
 import { updateMessageStatus } from '@/lib/repo'
+import { cn } from '@/lib/utils'
 import { Composer } from './Composer'
 import { MessageBubble } from './MessageBubble'
+import { ThemeToggle } from './ThemeToggle'
 import type { ImageRef } from '@/lib/db'
 
 interface Props {
@@ -63,8 +65,17 @@ export function ChatView({
   const messages = useMessages(conversationId)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [leftOffset, setLeftOffset] = useState(0)
+  const [scrollY, setScrollY] = useState(0)
   const hasGenerating = messages.some((m) => m.status === 'generating')
   const progressPercent = useGenerationProgress((s) => s.percent)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => setScrollY(el.scrollTop)
+    el.addEventListener('scroll', onScroll)
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -90,11 +101,18 @@ export function ChatView({
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-2 p-3 border-b border-border safe-top shrink-0">
+      <header
+        className={cn(
+          'flex items-center gap-2 p-3 border-b border-border shrink-0 sticky top-0 z-30 backdrop-blur-md transition-colors',
+          scrollY < 10 ? 'bg-background/60' : 'bg-background/85',
+        )}
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
+      >
         <Button size="icon" variant="ghost" onClick={onBack} aria-label="back">
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <h2 className="font-semibold truncate flex-1">{title ?? `会话 #${conversationId}`}</h2>
+        <ThemeToggle />
         <Button size="icon" variant="ghost" onClick={onSettings} aria-label="密钥管理">
           <Settings className="w-4 h-4" />
         </Button>
