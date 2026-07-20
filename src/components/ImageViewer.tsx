@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { db } from '@/lib/db'
 import { createObjectURLSafe, revokeObjectURLSafe, downloadBlob, copyToClipboard } from '@/lib/image'
-import { useToast } from '@/components/ui/use-toast'
+import { usePillToast } from '@/hooks/usePillToast'
 import { Download, Copy } from 'lucide-react'
 
 interface Props {
@@ -15,7 +15,7 @@ interface Props {
 export function ImageViewer({ blobId, prompt, onClose }: Props) {
   const [url, setUrl] = useState<string | null>(null)
   const [mime, setMime] = useState<string>('image/png')
-  const { toast } = useToast()
+  const pill = usePillToast.getState()
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -61,14 +61,14 @@ export function ImageViewer({ blobId, prompt, onClose }: Props) {
             const r = await fetch(url)
             const b = await r.blob()
             await downloadBlob(b, `image2chat-${Date.now()}.${mime.split('/')[1] ?? 'png'}`)
-            toast({ title: '已保存到下载' })
+            pill.show('已保存到下载', { variant: 'success' })
           }}>
             <Download className="w-4 h-4 mr-2" /> 保存到设备
           </Button>
           {prompt && (
             <Button variant="outline" onClick={async () => {
               await copyToClipboard(prompt)
-              toast({ title: '已复制 prompt' })
+              pill.show('已复制 prompt', { variant: 'success' })
             }}>
               <Copy className="w-4 h-4 mr-2" /> 复制 prompt
             </Button>
