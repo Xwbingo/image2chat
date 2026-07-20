@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Send, Paperclip, X, Plus } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import { usePillToast } from '@/hooks/usePillToast'
 import { db, type ImageRef } from '@/lib/db'
 
 const MAX_PROMPT_LEN = 4000
@@ -37,8 +38,11 @@ export function Composer({
   const [text, setText] = useState('')
   const [thumbUrls, setThumbUrls] = useState<Map<number, string>>(new Map())
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null)
+  const [focused, setFocused] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const pill = usePillToast.getState()
 
   useEffect(() => {
     let cancelled = false
@@ -87,6 +91,7 @@ export function Composer({
       return
     }
     onAddLocal(file)
+    pill.show('已添加参考图', { variant: 'success' })
   }
 
   function handleSend() {
@@ -102,18 +107,18 @@ export function Composer({
     onClearRefs()
   }
 
-  function handleDragStart(idx: number, e: React.DragEvent) {
+  function handleDragStart(idx: number, e: DragEvent) {
     setDraggingIdx(idx)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', String(idx))
   }
 
-  function handleDragOver(e: React.DragEvent) {
+  function handleDragOver(e: DragEvent) {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
   }
 
-  function handleDrop(targetIdx: number, e: React.DragEvent) {
+  function handleDrop(targetIdx: number, e: DragEvent) {
     e.preventDefault()
     const from = draggingIdx ?? Number(e.dataTransfer.getData('text/plain'))
     setDraggingIdx(null)
@@ -124,6 +129,26 @@ export function Composer({
   function handleRemoveRef(blobId: number, e: React.MouseEvent) {
     e.stopPropagation()
     onRemoveRef(blobId)
+  }
+
+  function handlePillDragOver(e: DragEvent) {
+    e.preventDefault()
+    setDragOver(true)
+  }
+
+  function handlePillDragLeave(e: DragEvent) {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setDragOver(false)
+  }
+
+  function handlePillDrop(e: DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file && file.type.startsWith('image/')) {
+      const fake = { target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>
+      handleFile(fake)
+    }
   }
 
   const showIndicator = refs.length > 0
@@ -154,28 +179,28 @@ export function Composer({
                 data-testid="ref-thumb"
                 data-ref-index={idx}
                 data-ref-kind={ref.kind}
-                className={`relative shrink-0 w-16 h-16 rounded border-2 cursor-move ${isDragging ? 'border-primary opacity-50' : 'border-border'}`}
+                className={`relative shrink-0 w-16 h-16 rounded-lg border cursor-move ${isDragging ? 'border-primary opacity-50' : 'border-border'}`}
               >
-                {url && <img src={url} alt="" className="w-full h-full object-cover rounded" />}
+                {url && <img src={url} alt="" className="w-full h-full object-cover rounded-lg" />}
                 <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[10px] px-1 rounded-br">
                   {idx + 1}
                 </span>
                 <button
                   type="button"
                   onClick={(e) => handleRemoveRef(ref.blobId, e)}
-                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                  className="absolute -top-1.5 -right-1.5 bg-black/60 text-white rounded-full p-0.5 hover:bg-black/80"
                   aria-label="移除参考图"
                   data-testid="remove-ref"
                 >
                   <X className="w-3 h-3" />
                 </button>
                 {ref.kind === 'local' && (
-                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] truncate px-1">
+                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] truncate px-1 rounded-b-lg">
                     {ref.fileName ?? '本地'}
                   </span>
                 )}
                 {ref.kind === 'chat' && ref.sourceMsgId != null && (
-                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] truncate px-1">
+                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] truncate px-1 rounded-b-lg">
                     #{ref.sourceMsgId}
                   </span>
                 )}
@@ -186,7 +211,7 @@ export function Composer({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="shrink-0 w-16 h-16 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary"
+              className="shrink-0 w-16 h-16 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary"
               aria-label="添加参考图"
               data-testid="add-ref-empty-slot"
             >
@@ -196,7 +221,7 @@ export function Composer({
         </div>
       )}
       {refs.length === 0 && (
-        <div className="mb-2 text-xs text-muted-foreground" data-testid="empty-hint">
+        <div className="mb-1 text-[10px] text-muted-foreground" data-testid="empty-hint">
           编辑模式：添加 1-{MAX_REFS} 张参考图
         </div>
       )}
@@ -208,13 +233,24 @@ export function Composer({
         onChange={handleFile}
         data-testid="file-input"
       />
-      <div className="flex gap-2 items-end">
+      <div
+        data-pill
+        onDragOver={handlePillDragOver}
+        onDragLeave={handlePillDragLeave}
+        onDrop={handlePillDrop}
+        className={[
+          'flex gap-2 items-end px-3 py-2.5 shadow-pill transition-all duration-200',
+          focused ? 'bg-background shadow-pill-focus' : 'bg-muted',
+          dragOver ? 'border-2 border-primary bg-primary/5 shadow-pill-drag' : 'border-2 border-transparent',
+        ].join(' ')}
+        style={{ borderRadius: '24px' }}
+      >
         <Button
           size="icon"
-          variant="outline"
+          variant="ghost"
           onClick={() => fileInputRef.current?.click()}
           aria-label="上传参考图（可多选）"
-          className="h-11 w-11 shrink-0"
+          className="h-10 w-10 rounded-full shrink-0"
           disabled={refs.length >= MAX_REFS}
           data-testid="upload-button"
         >
@@ -224,20 +260,22 @@ export function Composer({
           placeholder={refs.length > 0 ? `基于 ${refs.length} 张参考图生成...` : '描述你想要的图像…'}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
           }}
           rows={1}
-          className="resize-none min-h-[44px] max-h-32 text-base flex-1"
+          className="resize-none min-h-[40px] max-h-32 text-base flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 px-1"
         />
         <Button
           onClick={handleSend}
           disabled={disabled || text.trim().length === 0}
           aria-label="发送"
-          className="h-11 px-4 shrink-0"
+          className="h-10 w-10 rounded-full shrink-0 p-0"
+          data-testid="send-button"
         >
-          <Send className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">发送</span>
+          <Send className="w-4 h-4" />
         </Button>
       </div>
     </div>

@@ -31,13 +31,13 @@ it('calls onSend with trimmed prompt and current refs array', async () => {
   const refs: ImageRef[] = [{ blobId: 1, kind: 'chat', sourceMsgId: 5 }]
   const { onSend } = setup({ refs })
   await userEvent.type(screen.getByPlaceholderText(/基于 1 张参考图/), '  a red apple  ')
-  await userEvent.click(screen.getByText('发送'))
+  await userEvent.click(screen.getByRole('button', { name: '发送' }))
   expect(onSend).toHaveBeenCalledWith('a red apple', refs)
 })
 
 it('does not call onSend for empty prompt', async () => {
   const { onSend } = setup()
-  await userEvent.click(screen.getByText('发送'))
+  await userEvent.click(screen.getByRole('button', { name: '发送' }))
   expect(onSend).not.toHaveBeenCalled()
 })
 
@@ -45,7 +45,7 @@ it('uses mobile-safe composer sizing (pinning is handled by ChatView container)'
   const { container } = setup()
   const composerOuter = container.firstChild as HTMLElement
   expect(composerOuter).not.toHaveStyle({ position: 'fixed' })
-  expect(screen.getByText('发送')).toHaveClass('hidden', 'sm:inline')
+  expect(screen.getByRole('button', { name: '发送' })).toHaveClass('h-10', 'w-10')
 })
 
 it('does not accept bottomInset (pinning is the parent container\'s job)', () => {
@@ -211,7 +211,7 @@ it('onSend calls onClearRefs after sending', async () => {
   const refs: ImageRef[] = [{ blobId: 1, kind: 'chat', sourceMsgId: 5 }]
   const { onClearRefs, onSend } = setup({ refs })
   await userEvent.type(screen.getByPlaceholderText(/基于 1 张参考图/), 'hello')
-  await userEvent.click(screen.getByText('发送'))
+  await userEvent.click(screen.getByRole('button', { name: '发送' }))
   expect(onSend).toHaveBeenCalled()
   expect(onClearRefs).toHaveBeenCalledTimes(1)
 })
@@ -221,7 +221,7 @@ it('handles very long prompts by toasting and not sending', async () => {
   const long = 'x'.repeat(4001)
   const textarea = screen.getByPlaceholderText(/描述你想要的图像/) as HTMLTextAreaElement
   fireEvent.change(textarea, { target: { value: long } })
-  await userEvent.click(screen.getByText('发送'))
+  await userEvent.click(screen.getByRole('button', { name: '发送' }))
   expect(onSend).not.toHaveBeenCalled()
 })
 
@@ -234,4 +234,45 @@ it('Send button is disabled and Enter is ignored when disabled prop is true', as
   // Try keyboard Enter: should still no-op while disabled.
   fireEvent.keyDown(textarea, { key: 'Enter' })
   expect(onSend).not.toHaveBeenCalled()
+})
+
+it('outer container is a pill with 24px radius', () => {
+  const { container } = setup()
+  const composerOuter = container.firstChild as HTMLElement
+  const pill = composerOuter.querySelector('[data-pill]') as HTMLElement
+  expect(pill).toBeInTheDocument()
+  expect(pill).toHaveStyle({ borderRadius: '24px' })
+})
+
+it('shows drag-over highlight when file dragged over composer', () => {
+  const { container } = setup()
+  const pill = container.querySelector('[data-pill]') as HTMLElement
+  expect(pill).not.toHaveClass('border-primary')
+  fireEvent.dragOver(pill)
+  expect(pill).toHaveClass('border-primary')
+  fireEvent.dragLeave(pill)
+  expect(pill).not.toHaveClass('border-primary')
+})
+
+it('send button is round (40x40) and disabled when prompt empty', () => {
+  render(
+    <Composer
+      refs={[]} onAddLocal={() => {}} onRemoveRef={() => {}} onReorderRefs={() => {}}
+      onClearRefs={() => {}} onSend={() => {}}
+    />,
+  )
+  const sendBtn = screen.getByLabelText('发送')
+  expect(sendBtn).toBeDisabled()
+  expect(sendBtn).toHaveClass('rounded-full')
+})
+
+it('paperclip button is round', () => {
+  render(
+    <Composer
+      refs={[]} onAddLocal={() => {}} onRemoveRef={() => {}} onReorderRefs={() => {}}
+      onClearRefs={() => {}} onSend={() => {}}
+    />,
+  )
+  const btn = screen.getByLabelText('上传参考图（可多选）')
+  expect(btn).toHaveClass('rounded-full')
 })
