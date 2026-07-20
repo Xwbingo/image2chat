@@ -5,11 +5,14 @@ import { ChatView } from '@/components/ChatView'
 import { StatusBar } from '@/components/StatusBar'
 import { ImageViewer } from '@/components/ImageViewer'
 import { OfflineBanner } from '@/components/OfflineBanner'
+import { PillToast } from '@/components/PillToast'
+import { ProgressBar } from '@/components/ProgressBar'
 import { Button } from '@/components/ui/button'
 import { Menu } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useProviders } from '@/hooks/useProviders'
 import { useSession } from '@/stores/useSession'
+import { useGenerationProgress } from '@/hooks/useGenerationProgress'
 import { addConversation, addImage, markStaleGeneratingAsFailed } from '@/lib/repo'
 import { db, type ImageRef } from '@/lib/db'
 import { useGenerate } from '@/hooks/useGenerate'
@@ -23,6 +26,7 @@ export function HomePage() {
   const conversationId = params.conversationId ? Number(params.conversationId) : undefined
   const providers = useProviders()
   const { setActiveProviderId } = useSession()
+  const progress = useGenerationProgress.getState()
   const { generate } = useGenerate()
   const { toast } = useToast()
   const [refs, setRefs] = useState<ImageRef[]>([])
@@ -134,14 +138,23 @@ export function HomePage() {
   async function handleSend(prompt: string, sendRefs: ImageRef[]) {
     if (conversationId == null) return
     setRefs(sendRefs)
-    const result = await generate(conversationId, prompt, useSession.getState().defaultSize, sendRefs)
-    if ('error' in result) {
-      toast({
-        variant: 'destructive',
-        title: '生成失败',
-        description: result.error.message,
-      })
-      return
+    const size = useSession.getState().defaultSize
+    progress.start(size, sendRefs.length > 0)
+    try {
+      const result = await generate(conversationId, prompt, size, sendRefs)
+      if ('error' in result) {
+        progress.stop()
+        toast({
+          variant: 'destructive',
+          title: '生成失败',
+          description: result.error.message,
+        })
+        return
+      }
+      progress.complete()
+    } catch (e) {
+      progress.stop()
+      throw e
     }
     setRefs([])
   }
@@ -153,6 +166,8 @@ export function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground safe-top">
       <OfflineBanner />
+      <ProgressBar />
+      <PillToast />
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden md:block h-full">
           <Sidebar activeId={conversationId} onSelect={(id) => navigate(`/c/${id}`)} onNew={handleNew} />
