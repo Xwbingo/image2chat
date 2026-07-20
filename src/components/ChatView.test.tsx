@@ -113,10 +113,12 @@ it('groups messages by date and renders a 今天 header for same-day messages', 
 })
 
 it('renders 今天 then 昨天 headers for messages spanning two days', () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-21T12:00:00'))
   const now = Date.now()
-  const yesterday = now - 26 * 60 * 60 * 1000
+  const startOfYesterday = new Date('2026-07-20T08:00:00').getTime()
   mockMessages = [
-    { id: 1, conversationId: 1, role: 'user', kind: 'text_prompt', status: 'success', createdAt: yesterday },
+    { id: 1, conversationId: 1, role: 'user', kind: 'text_prompt', status: 'success', createdAt: startOfYesterday },
     { id: 2, conversationId: 1, role: 'assistant', kind: 'image_result', status: 'success', createdAt: now - 60_000 },
   ]
   renderChatView()
@@ -124,6 +126,7 @@ it('renders 今天 then 昨天 headers for messages spanning two days', () => {
   expect(screen.getByText('昨天')).toBeInTheDocument()
   expect(screen.getAllByTestId('msg-bubble')).toHaveLength(2)
   mockMessages = []
+  vi.useRealTimers()
 })
 
 it('renders YYYY-MM-DD header for messages older than yesterday', () => {
