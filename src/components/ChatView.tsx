@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useMessages } from '@/hooks/useMessages'
+import { useGenerationProgress } from '@/hooks/useGenerationProgress'
 import { updateMessageStatus } from '@/lib/repo'
 import { Composer } from './Composer'
 import { MessageBubble } from './MessageBubble'
@@ -63,6 +64,7 @@ export function ChatView({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [leftOffset, setLeftOffset] = useState(0)
   const hasGenerating = messages.some((m) => m.status === 'generating')
+  const progressPercent = useGenerationProgress((s) => s.percent)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -130,6 +132,7 @@ export function ChatView({
                     onImageClick={onOpenImage}
                     onRemoteClick={onRemoteClick}
                     onReference={onReference}
+                    progressPercent={m.status === 'generating' ? progressPercent : undefined}
                   />
                 ))}
               </div>

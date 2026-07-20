@@ -1,11 +1,25 @@
 import 'fake-indexeddb/auto'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { db } from '@/lib/db'
-import type { ImageRef } from '@/lib/db'
+import type { ImageRef, Message } from '@/lib/db'
 import { MessageBubble } from './MessageBubble'
 
 beforeEach(async () => { await db.delete(); await db.open() })
+
+function makeMsg(overrides: Partial<Message> = {}): Message {
+  return {
+    id: 1,
+    conversationId: 1,
+    role: 'assistant',
+    prompt: 'a red apple',
+    status: 'success',
+    kind: 'image_generation',
+    createdAt: Date.now(),
+    imageBlobId: undefined,
+    ...overrides,
+  }
+}
 
 it('renders user text prompt', () => {
   render(
@@ -173,28 +187,6 @@ it('shows user message clock timestamp', () => {
   expect(screen.getByText('09:05')).toBeInTheDocument()
 })
 
-it('shows live "已耗时" counter while assistant is generating', () => {
-  vi.useFakeTimers()
-  try {
-    const startedAt = Date.now()
-    render(
-      <MessageBubble
-        message={{
-          id: 11, conversationId: 1, role: 'assistant', kind: 'image_result',
-          status: 'generating', createdAt: startedAt, startedAt,
-        }}
-        onImageClick={() => {}}
-        onReference={() => {}}
-      />,
-    )
-    act(() => { vi.advanceTimersByTime(3500) })
-    expect(screen.getByText(/已耗时/)).toBeInTheDocument()
-    expect(screen.getByText(/已耗时 3 秒/)).toBeInTheDocument()
-  } finally {
-    vi.useRealTimers()
-  }
-})
-
 it('successful assistant renders "引用" button that triggers onReference', async () => {
   const blobId = await db.images.add({
     blob: new Blob([new Uint8Array([1])], { type: 'image/png' }),
@@ -211,4 +203,43 @@ it('successful assistant renders "引用" button that triggers onReference', asy
   expect(screen.queryByText('编辑')).not.toBeInTheDocument()
   await userEvent.click(screen.getByText('引用'))
   expect(onReference).toHaveBeenCalledWith(20)
+})
+
+it('renders generating bubble with single label and progress percent', () => {
+  render(
+    <MessageBubble
+      message={makeMsg({ status: 'generating', startedAt: Date.now() })}
+      onImageClick={() => {}}
+      onReference={() => {}}
+      progressPercent={42}
+    />,
+  )
+  expect(screen.getByText('正在创作…')).toBeInTheDocument()
+  expect(screen.getByText('42%')).toBeInTheDocument()
+  expect(screen.queryByText('勾勒中')).not.toBeInTheDocument()
+})
+
+it('renders success bubble with action pills (round, full radius)', () => {
+  render(
+    <MessageBubble
+      message={makeMsg({ status: 'success' })}
+      onImageClick={() => {}}
+      onReference={() => {}}
+    />,
+  )
+  const viewBtn = screen.getByText('查看')
+  const refBtn = screen.getByText('引用')
+  expect(viewBtn.closest('button')).toHaveClass('rounded-full')
+  expect(refBtn.closest('button')).toHaveClass('rounded-full')
+})
+
+it('renders copy-prompt pill when prompt exists', () => {
+  render(
+    <MessageBubble
+      message={makeMsg({ status: 'success', prompt: 'a red apple' })}
+      onImageClick={() => {}}
+      onReference={() => {}}
+    />,
+  )
+  expect(screen.getByText('复制 prompt')).toBeInTheDocument()
 })

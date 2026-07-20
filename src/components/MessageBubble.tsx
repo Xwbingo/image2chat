@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Loader2, Copy } from 'lucide-react'
 import { db } from '@/lib/db'
 import type { Message, ImageRef } from '@/lib/db'
-import { createObjectURLSafe, revokeObjectURLSafe } from '@/lib/image'
+import { createObjectURLSafe, revokeObjectURLSafe, copyToClipboard } from '@/lib/image'
+import { usePillToast } from '@/hooks/usePillToast'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -11,9 +11,8 @@ interface Props {
   onImageClick: (blobId: number) => void
   onRemoteClick?: (url: string) => void
   onReference: (msgId: number) => void
+  progressPercent?: number
 }
-
-const GENERATING_LABELS = ['正在创作…', '勾勒中', '渲染中', '精修中']
 
 const ERROR_DISPLAY: Record<string, string> = {
   'unauthorized': '密钥无效或已过期',
@@ -75,9 +74,7 @@ function MultiRefStrip({ refs, onPreview }: { refs: ImageRef[]; onPreview: (blob
         return out
       })
     })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [refs])
 
   useEffect(() => {
@@ -98,7 +95,7 @@ function MultiRefStrip({ refs, onPreview }: { refs: ImageRef[]; onPreview: (blob
             data-testid="multi-ref-thumb"
             data-ref-index={idx}
             data-ref-kind={ref.kind}
-            className="relative w-14 h-14 rounded overflow-hidden border border-border hover:border-primary"
+            className="relative w-14 h-14 rounded-lg overflow-hidden border border-border hover:border-primary"
           >
             {url && <img src={url} alt="" className="w-full h-full object-cover" />}
             <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[9px] px-1 rounded-br">
@@ -111,7 +108,7 @@ function MultiRefStrip({ refs, onPreview }: { refs: ImageRef[]; onPreview: (blob
             )}
             {ref.kind === 'local' && (
               <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] truncate px-1">
-                {ref.fileName ? '本地' : '本地'}
+                本地
               </span>
             )}
           </button>
@@ -124,12 +121,36 @@ function MultiRefStrip({ refs, onPreview }: { refs: ImageRef[]; onPreview: (blob
   )
 }
 
-export function MessageBubble({ message, onImageClick, onRemoteClick, onReference }: Props) {
+function PillButton({
+  variant,
+  onClick,
+  children,
+}: {
+  variant: 'primary' | 'outline'
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors',
+        variant === 'primary'
+          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+          : 'border border-border text-foreground hover:bg-accent',
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function MessageBubble({ message, onImageClick, onRemoteClick, onReference, progressPercent }: Props) {
   const isUser = message.role === 'user'
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [blobSize, setBlobSize] = useState<number | null>(null)
-  const [tick, setTick] = useState(0)
-  const [elapsed, setElapsed] = useState(0)
+  const pill = usePillToast.getState()
 
   useEffect(() => {
     if (message.status !== 'success' || !message.imageBlobId) return
@@ -147,23 +168,6 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
       if (currentUrl) revokeObjectURLSafe(currentUrl)
     }
   }, [message.imageBlobId, message.status, message.kind])
-
-  useEffect(() => {
-    if (message.status !== 'generating') return
-    const id = setInterval(() => setTick((t) => t + 1), 4000)
-    return () => clearInterval(id)
-  }, [message.status])
-
-  useEffect(() => {
-    if (message.status !== 'generating' || !message.startedAt) {
-      setElapsed(0)
-      return
-    }
-    const tick = () => setElapsed(Date.now() - message.startedAt!)
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [message.status, message.startedAt])
 
   if (isUser) {
     const isEdit = message.kind === 'image_edit_request'
@@ -190,7 +194,6 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
     )
   }
 
-  const label = GENERATING_LABELS[tick % GENERATING_LABELS.length]
   const elapsedMs =
     message.startedAt != null && message.completedAt != null
       ? Math.max(0, message.completedAt - message.startedAt)
@@ -205,9 +208,9 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
         {message.status === 'pending' || message.status === 'generating' ? (
           <div className="h-48 w-full max-w-xs sm:w-64 flex flex-col items-center justify-center gap-2 text-muted-foreground">
             <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm">{label}</span>
-            {message.startedAt && (
-              <span className="text-xs">已耗时 {formatDuration(elapsed)}</span>
+            <span className="text-sm">正在创作…</span>
+            {progressPercent != null && (
+              <span className="text-xs tabular-nums">{progressPercent}%</span>
             )}
           </div>
         ) : message.status === 'success' ? (
@@ -216,13 +219,34 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
               <img
                 src={blobUrl ?? message.remoteImageUrl!}
                 alt=""
-                className="rounded cursor-zoom-in"
+                className="rounded-lg cursor-zoom-in"
                 onClick={() => message.imageBlobId != null ? onImageClick(message.imageBlobId) : message.remoteImageUrl && onRemoteClick?.(message.remoteImageUrl)}
               />
             )}
-            <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="outline" onClick={() => message.imageBlobId != null ? onImageClick(message.imageBlobId) : message.remoteImageUrl && onRemoteClick?.(message.remoteImageUrl)}>查看</Button>
-              <Button size="sm" variant="outline" onClick={() => message.id != null && onReference(message.id)}>引用</Button>
+            <div className="flex gap-2 mt-2 flex-wrap">
+              <PillButton
+                variant="primary"
+                onClick={() => message.imageBlobId != null ? onImageClick(message.imageBlobId) : message.remoteImageUrl && onRemoteClick?.(message.remoteImageUrl)}
+              >
+                查看
+              </PillButton>
+              <PillButton
+                variant="outline"
+                onClick={() => message.id != null && onReference(message.id)}
+              >
+                引用
+              </PillButton>
+              {message.prompt && (
+                <PillButton
+                  variant="outline"
+                  onClick={async () => {
+                    await copyToClipboard(message.prompt!)
+                    pill.show('已复制 prompt', { variant: 'success' })
+                  }}
+                >
+                  <Copy className="w-3 h-3" /> 复制 prompt
+                </PillButton>
+              )}
             </div>
             {(message.size || elapsedMs != null || blobSize != null) && (
               <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
