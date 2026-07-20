@@ -40,6 +40,16 @@ function formatClock(ts: number): string {
   return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) {
+    const kb = bytes / 1024
+    return `${kb >= 100 ? Math.round(kb) : kb.toFixed(1)} KB`
+  }
+  const mb = bytes / (1024 * 1024)
+  return `${mb >= 100 ? Math.round(mb) : mb.toFixed(1)} MB`
+}
+
 function MultiRefStrip({ refs, onPreview }: { refs: ImageRef[]; onPreview: (blobId: number) => void }) {
   const [thumbs, setThumbs] = useState<Map<number, string>>(new Map())
 
@@ -117,6 +127,7 @@ function MultiRefStrip({ refs, onPreview }: { refs: ImageRef[]; onPreview: (blob
 export function MessageBubble({ message, onImageClick, onRemoteClick, onReference }: Props) {
   const isUser = message.role === 'user'
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [blobSize, setBlobSize] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
   const [elapsed, setElapsed] = useState(0)
 
@@ -124,10 +135,12 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
     if (message.status !== 'success' || !message.imageBlobId) return
     let cancelled = false
     let currentUrl: string | null = null
+    setBlobSize(null)
     db.images.get(message.imageBlobId).then((img) => {
       if (cancelled || !img) return
       currentUrl = createObjectURLSafe(img.blob)
       setBlobUrl(currentUrl)
+      setBlobSize(img.blob.size)
     })
     return () => {
       cancelled = true
@@ -211,9 +224,10 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
               <Button size="sm" variant="outline" onClick={() => message.imageBlobId != null ? onImageClick(message.imageBlobId) : message.remoteImageUrl && onRemoteClick?.(message.remoteImageUrl)}>查看</Button>
               <Button size="sm" variant="outline" onClick={() => message.id != null && onReference(message.id)}>引用</Button>
             </div>
-            {(message.size || elapsedMs != null) && (
+            {(message.size || elapsedMs != null || blobSize != null) && (
               <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
                 {message.size && <span>{message.size}</span>}
+                {blobSize != null && <span data-testid="image-size">{formatBytes(blobSize)}</span>}
                 {elapsedMs != null && <span>耗时 {formatDuration(elapsedMs)}</span>}
               </div>
             )}

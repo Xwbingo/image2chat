@@ -7,6 +7,20 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Default lifetime for a toast before it auto-dismisses.
+ *
+ * Radix's own default is 5000ms, which is too long for this app's UI:
+ * the toast viewport sits at the bottom-right of the viewport, which on
+ * PC overlaps the Composer (especially the Send button). 3000ms is
+ * long enough to read "密钥有效 ✓" / "图片过大" / "已达上限", short
+ * enough that a validation toast from SettingsPage is gone by the time
+ * the user reaches the chat composer. Callers can still override with
+ * a longer `duration` (e.g. destructive errors that include the API's
+ * message body) via the spread props on `<Toast />`.
+ */
+const TOAST_DEFAULT_DURATION = 3000
+
 const ToastProvider = ToastPrimitives.Provider
 
 const ToastViewport = React.forwardRef<
@@ -44,10 +58,11 @@ const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
     VariantProps<typeof toastVariants>
->(({ className, variant, ...props }, ref) => {
+>(({ className, variant, duration, ...props }, ref) => {
   return (
     <ToastPrimitives.Root
       ref={ref}
+      duration={duration ?? TOAST_DEFAULT_DURATION}
       className={cn(toastVariants({ variant }), className)}
       {...props}
     />
