@@ -140,6 +140,8 @@ npm run build
 /api/cors
 ```
 
+本地开发（`npm run dev`）也已自动挂载同一条路径——`vite.config.ts` 里有个 dev-only 中间件走的是同一份 `handleCors()`（在 `functions/cors-shared.ts`），所以本地测试 RunAPI 等无 CORS 的中转站时不用额外配置，填 `/api/cors` 就直接通。
+
 #### 方式 B：Cloudflare Worker（独立部署）
 
 适合还没迁到 Cloudflare Pages、或想给多个域名共享代理的场景。

@@ -7,6 +7,8 @@ dist-ssr/
 *.tsbuildinfo
 vite.config.d.ts
 vite.config.js
+functions/cors-shared.d.ts
+functions/cors-shared.js
 .DS_Store
 /.idea/
 docs/superpowers/plans/*-post-review-fixes.md
