@@ -21,6 +21,27 @@ export default {
         card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
       },
       borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+      boxShadow: {
+        card: 'var(--shadow-card)',
+        'card-hover': 'var(--shadow-card-hover)',
+        pill: 'var(--input-pill-shadow)',
+        'pill-focus': 'var(--input-pill-focus-shadow)',
+        'pill-drag': 'var(--input-pill-drag-shadow)',
+      },
+      keyframes: {
+        'float-in': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'pill-toast-in': {
+          from: { opacity: '0', transform: 'translateX(-50%) translateY(20px)' },
+          to: { opacity: '1', transform: 'translateX(-50%) translateY(0)' },
+        },
+      },
+      animation: {
+        'float-in': 'float-in 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+        'pill-toast-in': 'pill-toast-in 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+      },
     },
   },
   plugins: [animate],
