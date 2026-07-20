@@ -28,7 +28,7 @@
     --gradient-cyan-icon: linear-gradient(135deg, #06b6d4, #0891b2);
     --gradient-amber: linear-gradient(180deg, #f59e0b, #fbbf24);
     --status-generating-bar: linear-gradient(180deg, #f59e0b, #fbbf24);
-    --status-failed-bar: #ef4444;
+    --status-failed-bar: linear-gradient(180deg, #ef4444, #ef4444);
     --shadow-card: 0 1px 3px hsl(0 0% 0% / 0.05);
     --shadow-card-hover: 0 4px 12px hsl(0 0% 0% / 0.08);
     --input-pill-radius: 24px;

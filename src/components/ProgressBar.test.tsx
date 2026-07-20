@@ -20,7 +20,6 @@ it('renders progress bar at top when active', () => {
   })
   const bar = screen.getByRole('progressbar')
   expect(bar).toBeInTheDocument()
-  // top-fixed + z-index 60
   const container = bar.parentElement
   expect(container).toHaveStyle({ position: 'fixed', top: '0px', zIndex: '60' })
 })

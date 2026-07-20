@@ -22,7 +22,6 @@ it('after start, isActive=true and percent grows over time', () => {
     result.current.start('1024x1024' as ImageSize, false)
   })
   expect(result.current.isActive).toBe(true)
-  // 20s total time, 5s elapsed, should reach easeOutCubic(0.25) ~= 0.578 = 58% but capped at 95%
   act(() => {
     vi.advanceTimersByTime(5000)
   })
@@ -36,7 +35,7 @@ it('caps at 95% until complete()', () => {
     result.current.start('1024x1024' as ImageSize, false)
   })
   act(() => {
-    vi.advanceTimersByTime(30000) // far beyond 20s
+    vi.advanceTimersByTime(30000)
   })
   expect(result.current.percent).toBe(95)
 })
@@ -72,12 +71,12 @@ it('stop() clears without going to 100', () => {
 it('hasRefImages adds 30% to estimated time', () => {
   const { result: r1 } = renderHook(() => useGenerationProgress())
   act(() => { r1.current.start('1024x1024' as ImageSize, false) })
-  act(() => { vi.advanceTimersByTime(10000) }) // 10s out of 20s
+  act(() => { vi.advanceTimersByTime(10000) })
   const noRefPercent = r1.current.percent
 
   const { result: r2 } = renderHook(() => useGenerationProgress())
   act(() => { r2.current.start('1024x1024' as ImageSize, true) })
-  act(() => { vi.advanceTimersByTime(10000) }) // 10s out of 26s
+  act(() => { vi.advanceTimersByTime(10000) })
   const withRefPercent = r2.current.percent
 
   expect(withRefPercent).toBeLessThan(noRefPercent)

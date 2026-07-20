@@ -21,7 +21,6 @@ export default function App() {
     })()
   }, [])
 
-  // 同步 .dark class（双保险，ThemeToggle 已写过，这里确保切换 store 时也同步）
   useEffect(() => {
     document.documentElement.classList.toggle('dark', resolvedTheme === 'dark')
   }, [resolvedTheme])
