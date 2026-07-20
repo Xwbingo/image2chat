@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Trash2, Edit, Plus, Zap, MessageSquare } from 'lucide-react'
 import { useProviders } from '@/hooks/useProviders'
 import { addProvider, updateProvider, deleteProvider } from '@/lib/repo'
@@ -79,7 +80,10 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen px-3 py-4 sm:p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">密钥管理</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-semibold">密钥管理</h1>
+        <ThemeToggle />
+      </div>
       <div className="flex justify-end mb-4">
         <Button onClick={() => setAdding(true)}><Plus className="w-4 h-4 mr-2" /> 添加自定义</Button>
       </div>

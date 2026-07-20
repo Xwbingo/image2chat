@@ -7,6 +7,7 @@ import { ImageViewer } from '@/components/ImageViewer'
 import { OfflineBanner } from '@/components/OfflineBanner'
 import { PillToast } from '@/components/PillToast'
 import { ProgressBar } from '@/components/ProgressBar'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Menu } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
@@ -179,12 +180,19 @@ export function HomePage() {
             </Button>
           </div>
           {conversationId == null ? (
-            <div className="flex-1 flex items-center justify-center text-center p-8">
-              <div>
-                <p className="text-lg mb-4">开始一次新的创作</p>
-                <div className="flex gap-2 justify-center">
-                  <Button onClick={handleNew}>新建对话</Button>
-                  <Button variant="outline" onClick={() => navigate('/settings')}>管理密钥</Button>
+            <div className="flex-1 flex flex-col">
+              <header className="flex items-center justify-end gap-2 p-3 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30"
+                style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}>
+                <ThemeToggle />
+                <Button size="sm" variant="ghost" onClick={() => navigate('/settings')}>设置</Button>
+              </header>
+              <div className="flex-1 flex items-center justify-center text-center p-8">
+                <div>
+                  <p className="text-lg mb-4">开始一次新的创作</p>
+                  <div className="flex gap-2 justify-center">
+                    <Button onClick={handleNew}>新建对话</Button>
+                    <Button variant="outline" onClick={() => navigate('/settings')}>管理密钥</Button>
+                  </div>
                 </div>
               </div>
             </div>

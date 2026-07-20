@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { addProvider, seedBuiltinProviders, updateProvider } from '@/lib/repo'
 import { db } from '@/lib/db'
 import { BUILTIN_PROVIDERS } from '@/lib/api/providers'
@@ -54,7 +55,8 @@ export function OnboardingWizard({ onDone }: Props) {
   if (step === 'welcome') {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
+        <Card className="max-w-md w-full relative">
+          <div className="absolute top-3 right-3"><ThemeToggle /></div>
           <CardHeader><CardTitle className="text-2xl">欢迎使用 image2chat</CardTitle></CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-6">配置中转站，开始 AI 图像创作。</p>
