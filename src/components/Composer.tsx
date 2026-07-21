@@ -220,11 +220,6 @@ export function Composer({
           )}
         </div>
       )}
-      {refs.length === 0 && (
-        <div className="mb-1 text-[10px] text-muted-foreground" data-testid="empty-hint">
-          编辑模式：添加 1-{MAX_REFS} 张参考图
-        </div>
-      )}
       <input
         ref={fileInputRef}
         type="file"

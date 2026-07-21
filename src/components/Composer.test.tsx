@@ -57,12 +57,6 @@ it('does not accept bottomInset (pinning is the parent container\'s job)', () =>
   expect(composerOuter.style.transform).toBe('')
 })
 
-it('renders the empty hint when no refs', () => {
-  setup()
-  expect(screen.getByTestId('empty-hint')).toBeInTheDocument()
-  expect(screen.getByTestId('empty-hint')).toHaveTextContent(/1-3 张参考图/)
-})
-
 it('renders no refs-strip when refs is empty', () => {
   setup()
   expect(screen.queryByTestId('refs-strip')).not.toBeInTheDocument()

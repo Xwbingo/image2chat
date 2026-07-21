@@ -13,8 +13,8 @@ interface Props {
 
 const LABELS: Record<ImageSize, string> = {
   '1024x1024': '1:1', '1536x1024': '横向', '1024x1536': '纵向',
-  '2048x2048': '2K 正方形', '2048x1152': '2K 横向',
-  '3840x2160': '4K 横向', '2160x3840': '4K 纵向',
+  '2048x2048': '2K 正方形', '2048x1152': '2K 横向', '1152x2048': '2K 纵向',
+  '3840x2160': '4K 横向', '2160x3840': '4K 纵向', '4096x4096': '4K 正方形',
 }
 
 const RATIO_BOX: Record<ImageSize, { w: number; h: number }> = {
@@ -23,14 +23,16 @@ const RATIO_BOX: Record<ImageSize, { w: number; h: number }> = {
   '1024x1536': { w: 16, h: 24 },
   '2048x2048': { w: 24, h: 24 },
   '2048x1152': { w: 28, h: 16 },
+  '1152x2048': { w: 14, h: 24 },
   '3840x2160': { w: 32, h: 18 },
   '2160x3840': { w: 18, h: 32 },
+  '4096x4096': { w: 24, h: 24 },
 }
 
 const TIERS: Array<{ label: string; sizes: ImageSize[] }> = [
   { label: '常规', sizes: ['1024x1024', '1536x1024', '1024x1536'] },
-  { label: '2K', sizes: ['2048x2048', '2048x1152'] },
-  { label: '4K', sizes: ['3840x2160', '2160x3840'] },
+  { label: '2K', sizes: ['2048x2048', '2048x1152', '1152x2048'] },
+  { label: '4K', sizes: ['3840x2160', '2160x3840', '4096x4096'] },
 ]
 
 function RatioIcon({ size, active }: { size: ImageSize; active: boolean }) {

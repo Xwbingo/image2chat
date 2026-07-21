@@ -43,6 +43,16 @@ it('renders inline apiKey + corsProxy inputs per provider (no 编辑 Key dialog)
   expect(screen.queryByRole('button', { name: /开始使用/ })).not.toBeInTheDocument()
 })
 
+it('places 测试 beside the key input outside advanced config', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'key', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  renderOpen()
+
+  const keyInput = await screen.findByDisplayValue('key')
+  const testButton = screen.getByRole('button', { name: '测试密钥' })
+  expect(testButton.closest('details')).toBeNull()
+  expect(testButton.parentElement).toBe(keyInput.parentElement)
+})
+
 it('保存 persists dirty drafts and closes the sheet', async () => {
   const pid = (await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'old', corsProxy: 'old-cors', type: 'packy', isBuiltIn: 1, createdAt: 0 })) as number
   renderOpen()

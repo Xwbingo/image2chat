@@ -139,11 +139,24 @@ export function SettingsSheet() {
                           </Badge>
                         )}
                       </div>
-                      <Input
-                        type="password"
-                        value={keyDrafts[pid] ?? ''}
-                        onChange={(e) => setKeyDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          type="password"
+                          value={keyDrafts[pid] ?? ''}
+                          onChange={(e) => setKeyDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
+                          className="flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTest({ ...p, id: pid })}
+                          disabled={testingId === pid}
+                          aria-label="测试密钥"
+                          className="shrink-0"
+                        >
+                          <Zap className="w-3 h-3 mr-1" /> 测试
+                        </Button>
+                      </div>
                     </div>
                     <details className="group">
                       <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none flex items-center gap-1 py-1 list-none [&::-webkit-details-marker]:hidden">
@@ -159,22 +172,13 @@ export function SettingsSheet() {
                             onChange={(e) => setCorsDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
                           />
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleTest({ ...p, id: pid })}
-                            disabled={testingId === pid}
-                            aria-label="测试密钥"
-                          >
-                            <Zap className="w-3 h-3 mr-1" /> 测试
-                          </Button>
-                          {p.isBuiltIn === 0 && (
+                        {p.isBuiltIn === 0 && (
+                          <div className="flex flex-wrap gap-2">
                             <Button size="sm" variant="outline" onClick={() => deleteProvider(pid)}>
                               <Trash2 className="w-3 h-3 mr-1" /> 删除
                             </Button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </details>
                   </CardContent>

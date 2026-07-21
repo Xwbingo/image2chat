@@ -144,8 +144,7 @@ it('renders YYYY-MM-DD header for messages older than yesterday', () => {
 it('passes the refs array down to Composer', () => {
   const refs = [{ blobId: 7, kind: 'chat' as const, sourceMsgId: 99 }]
   renderChatView({ refs })
-  // Composer renders the empty-hint only when refs is empty; with 1 ref it renders the strip.
-  expect(screen.queryByTestId('empty-hint')).not.toBeInTheDocument()
+  expect(screen.getByTestId('refs-strip')).toBeInTheDocument()
 })
 
 it('forwards "引用" click from MessageBubble to onReference', async () => {
