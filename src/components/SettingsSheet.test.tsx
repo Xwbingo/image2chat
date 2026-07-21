@@ -1,10 +1,10 @@
 import 'fake-indexeddb/auto'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { db } from '@/lib/db'
-import { SettingsPage } from './SettingsPage'
+import { SettingsSheet } from './SettingsSheet'
+import { useSettings } from '@/stores/useSettings'
 
 const { validate } = vi.hoisted(() => ({ validate: vi.fn() }))
 
@@ -12,25 +12,9 @@ vi.mock('@/lib/api/validate', () => ({
   validateApiKey: (...args: unknown[]) => validate(...args),
 }))
 
-function Probe() {
-  const navigate = useNavigate()
-  return (
-    <div>
-      <span data-testid="probe-path">{window.location.pathname}</span>
-      <button data-testid="nav-home" onClick={() => navigate('/')}>go-home</button>
-    </div>
-  )
-}
-
-function renderAt(path: string) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/" element={<Probe />} />
-      </Routes>
-    </MemoryRouter>,
-  )
+function renderOpen() {
+  useSettings.getState().openSettings()
+  return render(<SettingsSheet />)
 }
 
 beforeEach(async () => {
@@ -38,18 +22,19 @@ beforeEach(async () => {
   await db.open()
   validate.mockReset()
   validate.mockResolvedValue({ valid: true })
+  useSettings.setState({ open: false })
 })
 
-it('renders as a sliding sheet with title 密钥管理 and a 保存 footer button', async () => {
+it('renders as a sliding sheet with title 密钥管理(完成后新建对话) and a 保存 footer button', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'k1', type: 'packy', isBuiltIn: 1, createdAt: 0 })
-  renderAt('/settings')
-  expect(await screen.findByText('密钥管理')).toBeInTheDocument()
+  renderOpen()
+  expect(await screen.findByText('密钥管理(完成后新建对话)')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument()
 })
 
 it('renders inline apiKey + corsProxy inputs per provider (no 编辑 Key dialog)', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'secret-key', corsProxy: 'https://cors', type: 'packy', isBuiltIn: 1, createdAt: 0 })
-  renderAt('/settings')
+  renderOpen()
 
   const keyInput = await screen.findByDisplayValue('secret-key')
   expect(keyInput).toHaveAttribute('type', 'password')
@@ -58,9 +43,9 @@ it('renders inline apiKey + corsProxy inputs per provider (no 编辑 Key dialog)
   expect(screen.queryByRole('button', { name: /开始使用/ })).not.toBeInTheDocument()
 })
 
-it('保存 persists dirty drafts and navigates to /', async () => {
+it('保存 persists dirty drafts and closes the sheet', async () => {
   const pid = (await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'old', corsProxy: 'old-cors', type: 'packy', isBuiltIn: 1, createdAt: 0 })) as number
-  renderAt('/settings')
+  renderOpen()
 
   const keyInput = (await screen.findByDisplayValue('old')) as HTMLInputElement
   await userEvent.clear(keyInput)
@@ -77,11 +62,14 @@ it('保存 persists dirty drafts and navigates to /', async () => {
     expect(p?.apiKey).toBe('new-key')
     expect(p?.corsProxy).toBe('new-cors')
   })
+  await waitFor(() => {
+    expect(useSettings.getState().open).toBe(false)
+  })
 })
 
 it('保存 does not write when drafts equal current values', async () => {
   const pid = (await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'same', corsProxy: 'same-cors', type: 'packy', isBuiltIn: 1, createdAt: 0 })) as number
-  renderAt('/settings')
+  renderOpen()
 
   await screen.findByDisplayValue('same')
 
@@ -105,7 +93,7 @@ it('保存 does not write when drafts equal current values', async () => {
 it('keeps 测试 button and 删除 for custom providers', async () => {
   await db.providers.add({ name: 'Custom', baseUrl: 'https://c', apiKey: 'ck', type: 'custom', isBuiltIn: 0, createdAt: 0 })
   await db.providers.add({ name: 'Builtin', baseUrl: 'https://b', apiKey: 'bk', type: 'packy', isBuiltIn: 1, createdAt: 1 })
-  renderAt('/settings')
+  renderOpen()
 
   await screen.findByText('Custom')
   expect(screen.getAllByRole('button', { name: '测试密钥' }).length).toBeGreaterThanOrEqual(1)
@@ -115,7 +103,7 @@ it('keeps 测试 button and 删除 for custom providers', async () => {
 
 it('does not render ThemeToggle inside the sheet', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
-  renderAt('/settings')
-  await screen.findByText('密钥管理')
+  renderOpen()
+  await screen.findByText('密钥管理(完成后新建对话)')
   expect(screen.queryByLabelText(/主题|toggle theme|theme/i)).not.toBeInTheDocument()
 })

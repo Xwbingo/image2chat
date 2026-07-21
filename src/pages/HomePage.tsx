@@ -12,11 +12,11 @@ import { Menu, Settings } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useProviders } from '@/hooks/useProviders'
 import { useSession } from '@/stores/useSession'
+import { useSettings } from '@/stores/useSettings'
 import { addConversation, addImage, markStaleGeneratingAsFailed } from '@/lib/repo'
 import { db, type ImageRef } from '@/lib/db'
 import { useGenerate } from '@/hooks/useGenerate'
 import { useToast } from '@/components/ui/use-toast'
-import { usePillToast } from '@/hooks/usePillToast'
 
 const MAX_REFS = 3
 
@@ -114,8 +114,7 @@ export function HomePage() {
   async function handleNew() {
     const hasKey = providers.some((p) => (p.apiKey ?? '').length > 0)
     if (!hasKey) {
-      usePillToast.getState().show('请先配置密钥', { variant: 'warning' })
-      navigate('/settings')
+      useSettings.getState().openSettings()
       return
     }
     const pid = useSession.getState().activeProviderId ?? providers[0]?.id
@@ -178,7 +177,7 @@ export function HomePage() {
               <header className="flex items-center justify-end gap-2 p-3 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30"
                 style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}>
                 <ThemeToggle />
-                <Button size="icon" variant="ghost" onClick={() => navigate('/settings')} aria-label="密钥管理">
+                <Button size="icon" variant="ghost" onClick={() => useSettings.getState().openSettings()} aria-label="密钥管理">
                   <Settings className="w-4 h-4" />
                 </Button>
               </header>
@@ -195,7 +194,7 @@ export function HomePage() {
             <ChatView
               conversationId={conversationId}
               onBack={() => navigate('/')}
-              onSettings={() => navigate('/settings')}
+              onSettings={() => useSettings.getState().openSettings()}
               onOpenImage={(blobId) => setViewerBlobId(blobId)}
               onRemoteClick={handleRemoteImageClick}
               onReference={handleReferenceFromChat}

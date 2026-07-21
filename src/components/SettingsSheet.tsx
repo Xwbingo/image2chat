@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,10 +14,11 @@ import { validateApiKey } from '@/lib/api/validate'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { usePillToast } from '@/hooks/usePillToast'
+import { useSettings } from '@/stores/useSettings'
 
-export function SettingsPage() {
+export function SettingsSheet() {
   const providers = useProviders()
-  const navigate = useNavigate()
+  const open = useSettings((s) => s.open)
   const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({})
   const [corsDrafts, setCorsDrafts] = useState<Record<number, string>>({})
   const [adding, setAdding] = useState(false)
@@ -27,7 +27,6 @@ export function SettingsPage() {
   const [key, setKey] = useState('')
   const [testingId, setTestingId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
-  const [open, setOpen] = useState<boolean>(true)
 
   useEffect(() => {
     setKeyDrafts((prev) => {
@@ -67,7 +66,7 @@ export function SettingsPage() {
         }
       }
       usePillToast.getState().show('已保存密钥', { variant: 'success' })
-      setOpen(false)
+      useSettings.getState().closeSettings()
     } finally {
       setSaving(false)
     }
@@ -108,10 +107,10 @@ export function SettingsPage() {
   }
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { setOpen(o); if (!o) navigate('/') }}>
+    <Sheet open={open} onOpenChange={(o) => { if (!o) useSettings.getState().closeSettings() }}>
       <SheetContent side="right" showCloseButton={false} className="w-full sm:max-w-md p-0 flex flex-col">
         <SheetHeader className="p-3 border-b border-border">
-          <SheetTitle>密钥管理</SheetTitle>
+          <SheetTitle>密钥管理(完成后新建对话)</SheetTitle>
         </SheetHeader>
         <div className="flex-1 overflow-y-auto p-3">
           <div className="flex justify-end mb-3">
@@ -200,4 +199,3 @@ export function SettingsPage() {
     </Sheet>
   )
 }
-

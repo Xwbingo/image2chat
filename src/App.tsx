@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Toaster } from '@/components/ui/toaster'
 import { OnboardingWizard } from '@/components/OnboardingWizard'
+import { SettingsSheet } from '@/components/SettingsSheet'
 import { seedBuiltinProviders, dedupeProviders } from '@/lib/repo'
 import { router } from '@/routes'
 import { RouterProvider } from 'react-router-dom'
@@ -37,6 +38,7 @@ export default function App() {
       <>
         <OnboardingWizard onDone={() => setNeedsOnboarding(false)} />
         <Toaster />
+        <SettingsSheet />
       </>
     )
   }
@@ -44,6 +46,7 @@ export default function App() {
     <>
       <RouterProvider router={router} />
       <Toaster />
+      <SettingsSheet />
     </>
   )
 }
