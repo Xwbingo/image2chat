@@ -21,7 +21,7 @@ describe('generateImage', () => {
     })
     expect(res).toMatchObject({ created: 1, data: [{ b64_json: IMAGE_B64 }] })
     expect(captured!.headers.get('authorization')).toBe('Bearer sk-test')
-    expect(JSON.parse(captured!.body)).toMatchObject({ prompt: 'cat', size: '2048x1152', response_format: 'b64_json' })
+    expect(JSON.parse(captured!.body)).toMatchObject({ prompt: 'cat', size: '2048x1152', response_format: 'b64_json', moderation: 'low' })
   })
 
   it('throws ApiError with kind=unauthorized on 401', async () => {
@@ -53,6 +53,7 @@ describe('editImage', () => {
     expect(captured!.get('prompt')).toBe('make red')
     expect(captured!.get('size')).toBe('1024x1024')
     expect(captured!.get('response_format')).toBe('b64_json')
+    expect(captured!.get('moderation')).toBe('low')
     expect(captured!.get('image')).toBeInstanceOf(Blob)
   })
 })
@@ -79,6 +80,7 @@ describe('editImageMulti', () => {
     expect(await images[2].arrayBuffer()).toEqual(await blobs[2].arrayBuffer())
     expect(captured!.get('prompt')).toBe('combine')
     expect(captured!.get('size')).toBe('1024x1024')
+    expect(captured!.get('moderation')).toBe('low')
   })
 
   it('with empty blobs array still sends a valid form (no images)', async () => {

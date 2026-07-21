@@ -34,6 +34,7 @@ export async function generateImage(
         size: req.size,
         quality: req.quality ?? 'high',
         response_format: req.response_format ?? 'b64_json',
+        moderation: 'low',
         user: req.user,
       }),
       signal: withTimeout(TIMEOUT_MS),
@@ -66,6 +67,7 @@ export async function editImageMulti(
   form.append('size', size)
   form.append('quality', 'high')
   form.append('response_format', 'b64_json')
+  form.append('moderation', 'low')
   try {
     const res = await fetch(url, {
       method: 'POST',
