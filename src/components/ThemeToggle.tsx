@@ -1,21 +1,21 @@
-import { Moon, Sun, Monitor } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/stores/useSession'
 
-const ORDER = ['system', 'dark', 'light'] as const
+const ORDER = ['light', 'dark'] as const
 
 export function ThemeToggle() {
   const theme = useSession((s) => s.theme)
   const setTheme = useSession((s) => s.setTheme)
 
   function handleClick() {
-    const idx = ORDER.indexOf(theme)
+    const idx = ORDER.indexOf(theme as typeof ORDER[number])
     const next = ORDER[(idx + 1) % ORDER.length]
     setTheme(next)
   }
 
-  const Icon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor
-  const label = theme === 'light' ? '浅色' : theme === 'dark' ? '深色' : '跟随系统'
+  const Icon = theme === 'light' ? Sun : Moon
+  const label = theme === 'light' ? '浅色' : '深色'
 
   return (
     <Button

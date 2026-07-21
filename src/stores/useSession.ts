@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { DEFAULT_SIZE, isImageSize, type ImageSize } from '@/lib/api/providers'
 
-export type ThemeMode = 'light' | 'dark' | 'system'
+export type ThemeMode = 'light' | 'dark'
 
 interface SessionState {
   activeProviderId: number | null
@@ -29,16 +29,8 @@ function readSize(): ImageSize {
 
 function readTheme(): ThemeMode {
   const v = localStorage.getItem(KEY_THEME)
-  if (v === 'light' || v === 'dark' || v === 'system') return v
-  return 'system'
-}
-
-function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
-  if (mode === 'system') {
-    return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark' : 'light'
-  }
-  return mode
+  if (v === 'light' || v === 'dark') return v
+  return 'light'
 }
 
 export const useSession = create<SessionState>((set) => ({
@@ -57,25 +49,13 @@ export const useSession = create<SessionState>((set) => ({
   },
   setTheme: (mode) => {
     localStorage.setItem(KEY_THEME, mode)
-    const resolved = resolveTheme(mode)
-    set({ theme: mode, resolvedTheme: resolved })
+    set({ theme: mode, resolvedTheme: mode })
     if (typeof document !== 'undefined') {
-      document.documentElement.classList.toggle('dark', resolved === 'dark')
+      document.documentElement.classList.toggle('dark', mode === 'dark')
     }
   },
 }))
 
-if (typeof window !== 'undefined') {
-  const initial = resolveTheme(useSession.getState().theme)
-  useSession.setState({ resolvedTheme: initial })
-  document.documentElement.classList.toggle('dark', initial === 'dark')
-
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    const cur = useSession.getState()
-    if (cur.theme === 'system') {
-      const r = resolveTheme('system')
-      useSession.setState({ resolvedTheme: r })
-      document.documentElement.classList.toggle('dark', r === 'dark')
-    }
-  })
+if (typeof document !== 'undefined') {
+  document.documentElement.classList.toggle('dark', readTheme() === 'dark')
 }

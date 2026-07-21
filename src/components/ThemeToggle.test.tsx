@@ -6,14 +6,14 @@ import { useSession } from '@/stores/useSession'
 beforeEach(() => {
   document.documentElement.classList.remove('dark')
   localStorage.removeItem('i2c.theme')
-  useSession.setState({ theme: 'system', resolvedTheme: 'light' })
+  useSession.setState({ theme: 'light', resolvedTheme: 'light' })
 })
 
-it('toggles theme on click: system → dark → light → system', async () => {
+it('toggles theme on click: light → dark → light', async () => {
   render(<ThemeToggle />)
   const btn = screen.getByRole('button')
 
-  expect(useSession.getState().theme).toBe('system')
+  expect(useSession.getState().theme).toBe('light')
   expect(document.documentElement.classList.contains('dark')).toBe(false)
 
   await userEvent.click(btn)
@@ -23,9 +23,6 @@ it('toggles theme on click: system → dark → light → system', async () => {
   await userEvent.click(btn)
   expect(useSession.getState().theme).toBe('light')
   expect(document.documentElement.classList.contains('dark')).toBe(false)
-
-  await userEvent.click(btn)
-  expect(useSession.getState().theme).toBe('system')
 })
 
 it('persists theme to localStorage', async () => {
