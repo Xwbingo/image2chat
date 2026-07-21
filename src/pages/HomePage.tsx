@@ -6,14 +6,12 @@ import { StatusBar } from '@/components/StatusBar'
 import { ImageViewer } from '@/components/ImageViewer'
 import { OfflineBanner } from '@/components/OfflineBanner'
 import { PillToast } from '@/components/PillToast'
-import { ProgressBar } from '@/components/ProgressBar'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
-import { Menu } from 'lucide-react'
+import { Menu, Settings } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useProviders } from '@/hooks/useProviders'
 import { useSession } from '@/stores/useSession'
-import { useGenerationProgress } from '@/hooks/useGenerationProgress'
 import { addConversation, addImage, markStaleGeneratingAsFailed } from '@/lib/repo'
 import { db, type ImageRef } from '@/lib/db'
 import { useGenerate } from '@/hooks/useGenerate'
@@ -27,7 +25,6 @@ export function HomePage() {
   const conversationId = params.conversationId ? Number(params.conversationId) : undefined
   const providers = useProviders()
   const { setActiveProviderId } = useSession()
-  const progress = useGenerationProgress.getState()
   const { generate } = useGenerate()
   const { toast } = useToast()
   const [refs, setRefs] = useState<ImageRef[]>([])
@@ -139,23 +136,14 @@ export function HomePage() {
   async function handleSend(prompt: string, sendRefs: ImageRef[]) {
     if (conversationId == null) return
     setRefs(sendRefs)
-    const size = useSession.getState().defaultSize
-    progress.start(size, sendRefs.length > 0)
-    try {
-      const result = await generate(conversationId, prompt, size, sendRefs)
-      if ('error' in result) {
-        progress.stop()
-        toast({
-          variant: 'destructive',
-          title: '生成失败',
-          description: result.error.message,
-        })
-        return
-      }
-      progress.complete()
-    } catch (e) {
-      progress.stop()
-      throw e
+    const result = await generate(conversationId, prompt, useSession.getState().defaultSize, sendRefs)
+    if ('error' in result) {
+      toast({
+        variant: 'destructive',
+        title: '生成失败',
+        description: result.error.message,
+      })
+      return
     }
     setRefs([])
   }
@@ -167,7 +155,6 @@ export function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground safe-top">
       <OfflineBanner />
-      <ProgressBar />
       <PillToast />
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden md:block h-full">
@@ -184,7 +171,9 @@ export function HomePage() {
               <header className="flex items-center justify-end gap-2 p-3 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30"
                 style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}>
                 <ThemeToggle />
-                <Button size="sm" variant="ghost" onClick={() => navigate('/settings')}>设置</Button>
+                <Button size="icon" variant="ghost" onClick={() => navigate('/settings')} aria-label="密钥管理">
+                  <Settings className="w-4 h-4" />
+                </Button>
               </header>
               <div className="flex-1 flex items-center justify-center text-center p-8">
                 <div>

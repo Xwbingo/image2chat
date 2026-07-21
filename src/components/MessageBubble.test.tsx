@@ -205,20 +205,6 @@ it('successful assistant renders "引用" button that triggers onReference', asy
   expect(onReference).toHaveBeenCalledWith(20)
 })
 
-it('renders generating bubble with single label and progress percent', () => {
-  render(
-    <MessageBubble
-      message={makeMsg({ status: 'generating', startedAt: Date.now() })}
-      onImageClick={() => {}}
-      onReference={() => {}}
-      progressPercent={42}
-    />,
-  )
-  expect(screen.getByText('正在创作…')).toBeInTheDocument()
-  expect(screen.getByText('42%')).toBeInTheDocument()
-  expect(screen.queryByText('勾勒中')).not.toBeInTheDocument()
-})
-
 it('renders success bubble with action pills (round, full radius)', () => {
   render(
     <MessageBubble

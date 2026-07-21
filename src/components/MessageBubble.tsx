@@ -11,8 +11,9 @@ interface Props {
   onImageClick: (blobId: number) => void
   onRemoteClick?: (url: string) => void
   onReference: (msgId: number) => void
-  progressPercent?: number
 }
+
+const GENERATING_LABELS = ['正在创作…', '勾勒中', '渲染中', '精修中']
 
 const ERROR_DISPLAY: Record<string, string> = {
   'unauthorized': '密钥无效或已过期',
@@ -146,10 +147,12 @@ function PillButton({
   )
 }
 
-export function MessageBubble({ message, onImageClick, onRemoteClick, onReference, progressPercent }: Props) {
+export function MessageBubble({ message, onImageClick, onRemoteClick, onReference }: Props) {
   const isUser = message.role === 'user'
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [blobSize, setBlobSize] = useState<number | null>(null)
+  const [tick, setTick] = useState(0)
+  const [elapsed, setElapsed] = useState(0)
   const pill = usePillToast.getState()
 
   useEffect(() => {
@@ -168,6 +171,23 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
       if (currentUrl) revokeObjectURLSafe(currentUrl)
     }
   }, [message.imageBlobId, message.status, message.kind])
+
+  useEffect(() => {
+    if (message.status !== 'generating') return
+    const id = setInterval(() => setTick((t) => t + 1), 4000)
+    return () => clearInterval(id)
+  }, [message.status])
+
+  useEffect(() => {
+    if (message.status !== 'generating' || !message.startedAt) {
+      setElapsed(0)
+      return
+    }
+    const tickLocal = () => setElapsed(Date.now() - message.startedAt!)
+    tickLocal()
+    const id = setInterval(tickLocal, 1000)
+    return () => clearInterval(id)
+  }, [message.status, message.startedAt])
 
   if (isUser) {
     const isEdit = message.kind === 'image_edit_request'
@@ -194,6 +214,7 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
     )
   }
 
+  const label = GENERATING_LABELS[tick % GENERATING_LABELS.length]
   const elapsedMs =
     message.startedAt != null && message.completedAt != null
       ? Math.max(0, message.completedAt - message.startedAt)
@@ -208,9 +229,9 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
         {message.status === 'pending' || message.status === 'generating' ? (
           <div className="h-48 w-full max-w-xs sm:w-64 flex flex-col items-center justify-center gap-2 text-muted-foreground">
             <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm">正在创作…</span>
-            {progressPercent != null && (
-              <span className="text-xs tabular-nums">{progressPercent}%</span>
+            <span className="text-sm">{label}</span>
+            {message.startedAt && (
+              <span className="text-xs">已耗时 {formatDuration(elapsed)}</span>
             )}
           </div>
         ) : message.status === 'success' ? (
