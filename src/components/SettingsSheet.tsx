@@ -152,7 +152,7 @@ export function SettingsSheet() {
                           onClick={() => handleTest({ ...p, id: pid })}
                           disabled={testingId === pid}
                           aria-label="测试密钥"
-                          className="shrink-0"
+                          className="h-10 shrink-0"
                         >
                           <Zap className="w-3 h-3 mr-1" /> 测试
                         </Button>

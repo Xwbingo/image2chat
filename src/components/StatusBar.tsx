@@ -9,7 +9,7 @@ import type { ImageSize } from '@/lib/api/providers'
 const SIZE_LABELS: Record<ImageSize, string> = {
   '1024x1024': '1:1', '1536x1024': '横向', '1024x1536': '纵向',
   '2048x2048': '2K 正方形', '2048x1152': '2K 横向', '1152x2048': '2K 纵向',
-  '3840x2160': '4K 横向', '2160x3840': '4K 纵向', '4096x4096': '4K 正方形',
+  '3840x2160': '4K 横向', '2160x3840': '4K 纵向',
 }
 
 interface Props { activeConversationId?: number }

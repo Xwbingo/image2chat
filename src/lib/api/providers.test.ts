@@ -2,25 +2,23 @@ import { describe, expect, it } from 'vitest'
 import { getSupportedSizes, BUILTIN_PROVIDERS } from './providers'
 
 describe('getSupportedSizes', () => {
-  it('packy supports all 9 sizes', () => {
+  it('packy supports all 8 sizes', () => {
     const sizes = getSupportedSizes('packy')
-    expect(sizes).toHaveLength(9)
+    expect(sizes).toHaveLength(8)
     expect(sizes).toContain('1152x2048')
-    expect(sizes).toContain('4096x4096')
   })
   it('runapi supports the 6 non-4K sizes', () => {
     const sizes = getSupportedSizes('runapi')
     expect(sizes).not.toContain('3840x2160')
     expect(sizes).not.toContain('2160x3840')
-    expect(sizes).not.toContain('4096x4096')
     expect(sizes).toContain('1152x2048')
     expect(sizes).toHaveLength(6)
   })
-  it('uuapi supports all 9 sizes', () => {
-    expect(getSupportedSizes('uuapi')).toHaveLength(9)
+  it('uuapi supports all 8 sizes', () => {
+    expect(getSupportedSizes('uuapi')).toHaveLength(8)
   })
-  it('custom supports all 9', () => {
-    expect(getSupportedSizes('custom')).toHaveLength(9)
+  it('custom supports all 8', () => {
+    expect(getSupportedSizes('custom')).toHaveLength(8)
   })
 })
 
