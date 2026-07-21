@@ -216,3 +216,31 @@ it('failure path records completedAt so elapsed-time still renders', async () =>
   expect(assistant.startedAt).toBeGreaterThan(0)
   expect(assistant.completedAt).toBeGreaterThan(0)
 })
+
+it('url response: fetches the image, stores blob, sets remoteImageUrl', async () => {
+  const pngBytes = Uint8Array.from(atob(IMAGE_B64), (c) => c.charCodeAt(0))
+  server.use(
+    http.post('https://www.packyapi.com/v1/images/generations', () =>
+      HttpResponse.json({
+        created: 1784556537,
+        data: [{ revised_prompt: '生成一只猫咪', url: 'https://example.com/test.png' }],
+        request_id: 'req-1',
+        stage: 'completed',
+        status: 'completed',
+      }),
+    ),
+    http.get('https://example.com/test.png', () =>
+      new HttpResponse(pngBytes, { headers: { 'content-type': 'image/png' } }),
+    ),
+  )
+  const pid = await db.providers.add({ name: 'P', baseUrl: 'https://www.packyapi.com', apiKey: 'k', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+
+  const { generate } = useGenerate()
+  const res = (await generate(cid, 'cat', '2048x1152')) as { messageId: number }
+  expect(res?.messageId).toBeGreaterThan(0)
+  const assistant = (await db.messages.toArray()).find((m) => m.role === 'assistant')!
+  expect(assistant.status).toBe('success')
+  expect(assistant.imageBlobId).toBeGreaterThan(0)
+  expect(assistant.remoteImageUrl).toBe('https://example.com/test.png')
+})

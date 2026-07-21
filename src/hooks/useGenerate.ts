@@ -1,7 +1,9 @@
 import { useCallback } from 'react'
 import { db, type ImageRef } from '@/lib/db'
-import { getProvider, addMessage, updateMessageStatus, setMessageBlobId, addImage, touchConversation } from '@/lib/repo'
+import { getProvider, addMessage, updateMessageStatus, setMessageBlobId, setMessageRemoteUrl, addImage, touchConversation } from '@/lib/repo'
 import { generateImage, editImageMulti } from '@/lib/api/client'
+import { extractImageFromResponse } from '@/lib/api/normalize'
+import { applyCorsProxy } from '@/lib/api/proxy'
 import type { ApiError } from '@/lib/api/errors'
 import { parseNetworkError } from '@/lib/api/errors'
 
@@ -51,7 +53,7 @@ export function useGenerate() {
         })
         await touchConversation(conversationId)
 
-        let response
+        let response: unknown
         if (imageRefs.length > 0) {
           const blobs: Blob[] = []
           for (const ref of imageRefs) {
@@ -63,11 +65,27 @@ export function useGenerate() {
         } else {
           response = await generateImage(provider.baseUrl, provider.apiKey, { prompt, size }, provider.corsProxy)
         }
-        const b64 = response.data[0]?.b64_json
-        if (!b64) throw { kind: 'content_filtered', message: '返回为空' }
-        const blob = base64ToBlob(b64)
-        const bid = await addImage(blob, 'image/png')
+
+        const extracted = extractImageFromResponse(response)
+        if (!extracted) throw { kind: 'content_filtered', message: '返回为空' }
+
+        let blob: Blob
+        let remoteUrl: string | null = null
+        if (extracted.kind === 'b64' || extracted.kind === 'data_url') {
+          const raw = extracted.kind === 'data_url'
+            ? extracted.value.slice(extracted.value.indexOf(',') + 1)
+            : extracted.value
+          blob = base64ToBlob(raw)
+        } else {
+          const r = await fetch(applyCorsProxy(extracted.value, provider.corsProxy))
+          if (!r.ok) throw { kind: 'network', message: `图片 URL 获取失败 (${r.status})` }
+          blob = await r.blob()
+          remoteUrl = extracted.value
+        }
+
+        const bid = await addImage(blob, blob.type || 'image/png')
         await setMessageBlobId(assistantId, bid)
+        if (remoteUrl) await setMessageRemoteUrl(assistantId, remoteUrl)
         await db.messages.update(assistantId, { completedAt: Date.now() })
         await updateMessageStatus(assistantId, 'success')
         return { messageId: assistantId }

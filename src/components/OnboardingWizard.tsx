@@ -28,9 +28,13 @@ export function OnboardingWizard({ onDone }: Props) {
     setBusy(true)
     await seedBuiltinProviders()
     const baseUrl = type === 'custom' ? customUrl.trim() :
-      type === 'packy' ? BUILTIN_PROVIDERS.packy.baseUrl : BUILTIN_PROVIDERS.runapi.baseUrl
+      type === 'packy' ? BUILTIN_PROVIDERS.packy.baseUrl :
+      type === 'runapi' ? BUILTIN_PROVIDERS.runapi.baseUrl :
+      BUILTIN_PROVIDERS.uuapi.baseUrl
     const name = type === 'custom' ? (customName.trim() || '自定义') :
-      type === 'packy' ? 'Packy' : 'RunAPI'
+      type === 'packy' ? 'Packy' :
+      type === 'runapi' ? 'RunAPI' :
+      'uuapi'
     if (type === 'custom') {
       const existing = await db.providers.where('baseUrl').equals(customUrl.trim()).first()
       if (existing?.id != null) {
@@ -79,6 +83,9 @@ export function OnboardingWizard({ onDone }: Props) {
             <Button variant="outline" className="w-full justify-start" onClick={() => { setType('runapi'); setStep('key') }}>
               RunAPI<br /><span className="text-xs text-muted-foreground">{BUILTIN_PROVIDERS.runapi.baseUrl}</span>
             </Button>
+            <Button variant="outline" className="w-full justify-start" onClick={() => { setType('uuapi'); setStep('key') }}>
+              uuapi<br /><span className="text-xs text-muted-foreground">{BUILTIN_PROVIDERS.uuapi.baseUrl}</span>
+            </Button>
             <Button variant="ghost" className="w-full" onClick={() => { setType('custom'); setStep('key') }}>
               自定义添加
             </Button>
@@ -96,6 +103,7 @@ export function OnboardingWizard({ onDone }: Props) {
           <p className="text-sm text-muted-foreground">
             {type === 'packy' ? `中转站：${BUILTIN_PROVIDERS.packy.baseUrl}` :
              type === 'runapi' ? `中转站：${BUILTIN_PROVIDERS.runapi.baseUrl}` :
+             type === 'uuapi' ? `中转站：${BUILTIN_PROVIDERS.uuapi.baseUrl}` :
              `自定义：${customUrl || '请填写域名'}`}
           </p>
         </CardHeader>

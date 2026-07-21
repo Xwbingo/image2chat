@@ -1,4 +1,4 @@
-import type { GenerateRequest, GenerateResponse } from './types'
+import type { GenerateRequest } from './types'
 import { parseApiError, parseNetworkError } from './errors'
 import { applyCorsProxy } from './proxy'
 
@@ -15,7 +15,7 @@ function withTimeout(ms: number, signal?: AbortSignal): AbortSignal {
 export async function generateImage(
   baseUrl: string, apiKey: string, req: GenerateRequest,
   corsProxy?: string,
-): Promise<GenerateResponse> {
+): Promise<unknown> {
   const url = applyCorsProxy(
     `${baseUrl.replace(/\/$/, '')}/v1/images/generations`,
     corsProxy,
@@ -40,7 +40,7 @@ export async function generateImage(
     })
     const body = await res.text()
     if (!res.ok) throw parseApiError(res, body)
-    return JSON.parse(body) as GenerateResponse
+    return JSON.parse(body)
   } catch (e) {
     if (e && typeof e === 'object' && 'kind' in e) throw e
     throw parseNetworkError(e)
@@ -51,7 +51,7 @@ export async function editImageMulti(
   baseUrl: string, apiKey: string,
   prompt: string, sourceBlobs: Blob[], size: string,
   corsProxy?: string,
-): Promise<GenerateResponse> {
+): Promise<unknown> {
   const url = applyCorsProxy(
     `${baseUrl.replace(/\/$/, '')}/v1/images/edits`,
     corsProxy,
@@ -75,7 +75,7 @@ export async function editImageMulti(
     })
     const body = await res.text()
     if (!res.ok) throw parseApiError(res, body)
-    return JSON.parse(body) as GenerateResponse
+    return JSON.parse(body)
   } catch (e) {
     if (e && typeof e === 'object' && 'kind' in e) throw e
     throw parseNetworkError(e)
@@ -86,6 +86,6 @@ export function editImage(
   baseUrl: string, apiKey: string,
   prompt: string, sourceBlob: Blob, size: string,
   corsProxy?: string,
-): Promise<GenerateResponse> {
+): Promise<unknown> {
   return editImageMulti(baseUrl, apiKey, prompt, [sourceBlob], size, corsProxy)
 }

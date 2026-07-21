@@ -1,11 +1,12 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { getSupportedSizes, type ImageSize } from '@/lib/api/providers'
+import type { ProviderType } from '@/lib/db'
 import { cn } from '@/lib/utils'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  providerType: 'packy' | 'runapi' | 'custom' | undefined
+  providerType: ProviderType | undefined
   current: ImageSize
   onSelect: (size: ImageSize) => void
 }

@@ -3,6 +3,7 @@ import type { ProviderType } from '../db'
 export const BUILTIN_PROVIDERS = {
   packy:  { name: 'Packy',  baseUrl: 'https://www.packyapi.com' },
   runapi: { name: 'RunAPI', baseUrl: 'https://runapi.co' },
+  uuapi:  { name: 'uuapi',  baseUrl: 'https://uuapi.cc' },
 } as const
 
 const ALL_SIZES = [

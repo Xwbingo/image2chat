@@ -11,14 +11,18 @@ describe('getSupportedSizes', () => {
     expect(sizes).not.toContain('2160x3840')
     expect(sizes).toHaveLength(5)
   })
+  it('uuapi supports all 7 sizes', () => {
+    expect(getSupportedSizes('uuapi')).toHaveLength(7)
+  })
   it('custom supports all 7', () => {
     expect(getSupportedSizes('custom')).toHaveLength(7)
   })
 })
 
 describe('BUILTIN_PROVIDERS', () => {
-  it('exposes packy and runapi', () => {
+  it('exposes packy, runapi, and uuapi', () => {
     expect(BUILTIN_PROVIDERS.packy.baseUrl).toBe('https://www.packyapi.com')
     expect(BUILTIN_PROVIDERS.runapi.baseUrl).toBe('https://runapi.co')
+    expect(BUILTIN_PROVIDERS.uuapi.baseUrl).toBe('https://uuapi.cc')
   })
 })

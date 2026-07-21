@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 
-export type ProviderType = 'packy' | 'runapi' | 'custom'
+export type ProviderType = 'packy' | 'runapi' | 'uuapi' | 'custom'
 export type MessageRole = 'user' | 'assistant'
 export type MessageKind = 'text_prompt' | 'image_result' | 'image_edit_request'
 export type MessageStatus = 'pending' | 'generating' | 'success' | 'failed'

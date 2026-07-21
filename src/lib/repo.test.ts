@@ -39,15 +39,15 @@ describe('dedupeProviders', () => {
 })
 
 describe('seedBuiltinProviders', () => {
-  it('adds packy and runapi when empty', async () => {
+  it('adds packy, runapi, and uuapi when empty', async () => {
     await seedBuiltinProviders()
-    expect(await countProviders()).toBe(2)
+    expect(await countProviders()).toBe(3)
   })
 
   it('does not duplicate when already seeded', async () => {
     await seedBuiltinProviders()
     await seedBuiltinProviders()
-    expect(await countProviders()).toBe(2)
+    expect(await countProviders()).toBe(3)
   })
 })
 

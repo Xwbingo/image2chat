@@ -41,6 +41,13 @@ export async function seedBuiltinProviders(): Promise<void> {
         apiKey: '', type: 'runapi', isBuiltIn: 1, createdAt: now + 1,
       })
     }
+    if (!have.has('uuapi')) {
+      await db.providers.add({
+        name: BUILTIN_PROVIDERS.uuapi.name,
+        baseUrl: BUILTIN_PROVIDERS.uuapi.baseUrl,
+        apiKey: '', type: 'uuapi', isBuiltIn: 1, createdAt: now + 2,
+      })
+    }
   })
 }
 
@@ -56,7 +63,7 @@ export async function dedupeProviders(): Promise<number> {
       return (a.id ?? 0) - (b.id ?? 0)
     })
     for (const p of all) {
-      const key = (p.type === 'packy' || p.type === 'runapi')
+      const key = (p.type === 'packy' || p.type === 'runapi' || p.type === 'uuapi')
         ? `builtin:${p.type}`
         : `custom:${p.baseUrl}`
       if (seen.has(key)) {
