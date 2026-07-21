@@ -32,13 +32,6 @@ it('renders new-chat as theme card with purple gradient', () => {
   expect(card).toHaveStyle({ backgroundImage: 'var(--gradient-purple)' })
 })
 
-it('renders settings link as theme card with cyan gradient', () => {
-  render(<Sidebar onSelect={() => {}} onNew={() => {}} />)
-  const card = screen.getByText('管理密钥').closest('[data-card]')
-  expect(card).toBeInTheDocument()
-  expect(card).toHaveStyle({ backgroundImage: 'var(--gradient-cyan)' })
-})
-
 it('shows amber left bar for conversations with generating messages', async () => {
   const pid = await db.providers.add({ name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 })
   const cid = (await db.conversations.add({ title: 'Alpha', createdAt: 0, updatedAt: 1, providerPresetId: pid })) as number

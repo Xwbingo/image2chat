@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,13 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Trash2, Edit, Plus, Zap, MessageSquare } from 'lucide-react'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Trash2, Plus, Zap } from 'lucide-react'
 import { useProviders } from '@/hooks/useProviders'
 import { addProvider, updateProvider, deleteProvider } from '@/lib/repo'
 import { db, type ProviderPreset } from '@/lib/db'
 import { useToast } from '@/components/ui/use-toast'
-import { useSession } from '@/stores/useSession'
 import { validateApiKey } from '@/lib/api/validate'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -21,21 +20,56 @@ export function SettingsPage() {
   const providers = useProviders()
   const { toast } = useToast()
   const navigate = useNavigate()
-  const { setActiveProviderId } = useSession()
-  const [editing, setEditing] = useState<{ id: number; key: string } | null>(null)
+  const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({})
+  const [corsDrafts, setCorsDrafts] = useState<Record<number, string>>({})
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
   const [key, setKey] = useState('')
   const [testingId, setTestingId] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  async function handleStartChat(p: ProviderPreset & { id: number }) {
-    if (!p.apiKey.trim()) {
-      toast({ variant: 'destructive', title: '请先填写密钥', description: '未配置密钥的中转站无法使用' })
-      return
+  useEffect(() => {
+    setKeyDrafts((prev) => {
+      if (Object.keys(prev).length > 0) return prev
+      const k: Record<number, string> = {}
+      for (const p of providers) {
+        if (p.id == null) continue
+        k[p.id] = p.apiKey
+      }
+      return k
+    })
+    setCorsDrafts((prev) => {
+      if (Object.keys(prev).length > 0) return prev
+      const c: Record<number, string> = {}
+      for (const p of providers) {
+        if (p.id == null) continue
+        c[p.id] = p.corsProxy ?? ''
+      }
+      return c
+    })
+  }, [providers])
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      for (const p of providers) {
+        if (p.id == null) continue
+        const patch: Partial<ProviderPreset> = {}
+        if (keyDrafts[p.id] !== p.apiKey) patch.apiKey = keyDrafts[p.id] ?? ''
+        const currentCors = p.corsProxy ?? ''
+        if (corsDrafts[p.id] !== currentCors) {
+          const v = (corsDrafts[p.id] ?? '').trim()
+          patch.corsProxy = v ? v : undefined
+        }
+        if (Object.keys(patch).length > 0) {
+          await updateProvider(p.id, patch)
+        }
+      }
+      navigate('/')
+    } finally {
+      setSaving(false)
     }
-    setActiveProviderId(p.id)
-    navigate('/')
   }
 
   async function saveAdd() {
@@ -53,13 +87,14 @@ export function SettingsPage() {
   }
 
   async function handleTest(p: ProviderPreset & { id: number }) {
-    if (!p.apiKey) {
+    const currentKey = keyDrafts[p.id] ?? p.apiKey
+    if (!currentKey) {
       toast({ variant: 'destructive', title: '未配置密钥', description: '请先填写密钥再测试' })
       return
     }
     setTestingId(p.id)
     toast({ title: '正在连接中转站…' })
-    const result = await validateApiKey(p.baseUrl, p.apiKey, p.corsProxy)
+    const result = await validateApiKey(p.baseUrl, currentKey, p.corsProxy)
     setTestingId(null)
     if (result.valid) {
       await updateProvider(p.id, { lastValidatedAt: Date.now(), lastValid: 1 })
@@ -79,105 +114,96 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen px-3 py-4 sm:p-4 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">密钥管理</h1>
-        <ThemeToggle />
-      </div>
-      <div className="flex justify-end mb-4">
-        <Button onClick={() => setAdding(true)}><Plus className="w-4 h-4 mr-2" /> 添加自定义</Button>
-      </div>
-      <div className="space-y-3">
-        {providers.map((p) => (
-          <Card key={p.id}>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base">{p.name}</CardTitle>
-                <p className="text-xs text-muted-foreground">{p.baseUrl}</p>
-              </div>
-              <Badge>{p.type}</Badge>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => setEditing({ id: p.id!, key: p.apiKey })}>
-                  <Edit className="w-3 h-3 mr-1" /> 编辑 Key
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => p.id != null && handleTest({ ...p, id: p.id })}
-                  disabled={testingId === p.id}
-                  aria-label="测试密钥"
-                >
-                  <Zap className="w-3 h-3 mr-1" /> 测试
-                </Button>
-                <Button
-                  size="sm"
-                  variant="default"
-                  onClick={() => p.id != null && handleStartChat({ ...p, id: p.id })}
-                  disabled={!p.apiKey.trim()}
-                  aria-label="开始使用"
-                >
-                  <MessageSquare className="w-3 h-3 mr-1" /> 开始使用
-                </Button>
-                {p.isBuiltIn === 0 && (
-                  <Button size="sm" variant="outline" onClick={() => p.id != null && deleteProvider(p.id)}>
-                    <Trash2 className="w-3 h-3 mr-1" /> 删除
-                  </Button>
-                )}
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs">CORS 代理（可选）</Label>
-                  {p.lastValidatedAt != null && (
-                    <Badge variant={p.lastValid ? 'default' : 'destructive'}>
-                      {p.lastValid ? '✓ 有效' : '✗ 无效'} · {formatDistanceToNow(p.lastValidatedAt, { addSuffix: true, locale: zhCN })}
-                    </Badge>
-                  )}
-                </div>
-                <Input
-                  placeholder="https://corsproxy.io/?"
-                  defaultValue={p.corsProxy ?? ''}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim()
-                    if (p.id != null) {
-                      void updateProvider(p.id, { corsProxy: v || undefined })
-                    }
-                  }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Dialog open={editing != null} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader><DialogTitle>编辑密钥</DialogTitle></DialogHeader>
-          <Label>SK 密钥</Label>
-          <Input type="password" value={editing?.key ?? ''} onChange={(e) => editing && setEditing({ ...editing, key: e.target.value })} />
-          <DialogFooter>
-            <Button onClick={async () => {
-              if (editing) await updateProvider(editing.id, { apiKey: editing.key }); setEditing(null)
-            }}>保存</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={adding} onOpenChange={setAdding}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader><DialogTitle>添加自定义中转站</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>名称</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-            <div><Label>域名</Label><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" /></div>
-            <div><Label>SK 密钥</Label><Input type="password" value={key} onChange={(e) => setKey(e.target.value)} /></div>
+    <Sheet open={true} onOpenChange={(o) => !o && navigate('/')}>
+      <SheetContent side="left" showCloseButton={false} className="w-full sm:max-w-md p-0 flex flex-col">
+        <SheetHeader className="p-3 border-b border-border">
+          <SheetTitle>密钥管理</SheetTitle>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex justify-end mb-3">
+            <Button size="sm" onClick={() => setAdding(true)}><Plus className="w-4 h-4 mr-2" /> 添加自定义</Button>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setAdding(false)}>取消</Button>
-            <Button onClick={saveAdd}>添加</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          <div className="space-y-3">
+            {providers.map((p) => {
+              if (p.id == null) return null
+              const pid = p.id
+              return (
+                <Card key={pid}>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-base">{p.name}</CardTitle>
+                      <p className="text-xs text-muted-foreground truncate">{p.baseUrl}</p>
+                    </div>
+                    <Badge>{p.type}</Badge>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs">SK 密钥</Label>
+                        {p.lastValidatedAt != null && (
+                          <Badge variant={p.lastValid ? 'default' : 'destructive'}>
+                            {p.lastValid ? '✓ 有效' : '✗ 无效'} · {formatDistanceToNow(p.lastValidatedAt, { addSuffix: true, locale: zhCN })}
+                          </Badge>
+                        )}
+                      </div>
+                      <Input
+                        type="password"
+                        value={keyDrafts[pid] ?? ''}
+                        onChange={(e) => setKeyDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">CORS 代理（可选）</Label>
+                      <Input
+                        placeholder="https://corsproxy.io/?"
+                        value={corsDrafts[pid] ?? ''}
+                        onChange={(e) => setCorsDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleTest({ ...p, id: pid })}
+                        disabled={testingId === pid}
+                        aria-label="测试密钥"
+                      >
+                        <Zap className="w-3 h-3 mr-1" /> 测试
+                      </Button>
+                      {p.isBuiltIn === 0 && (
+                        <Button size="sm" variant="outline" onClick={() => deleteProvider(pid)}>
+                          <Trash2 className="w-3 h-3 mr-1" /> 删除
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+        <div className="border-t border-border p-3">
+          <Button className="w-full" onClick={handleSave} disabled={saving}>
+            {saving ? '保存中…' : '保存'}
+          </Button>
+        </div>
+
+        <Dialog open={adding} onOpenChange={setAdding}>
+          <DialogContent showCloseButton={false}>
+            <DialogHeader><DialogTitle>添加自定义中转站</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>名称</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+              <div><Label>域名</Label><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" /></div>
+              <div><Label>SK 密钥</Label><Input type="password" value={key} onChange={(e) => setKey(e.target.value)} /></div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setAdding(false)}>取消</Button>
+              <Button onClick={saveAdd}>添加</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }
+

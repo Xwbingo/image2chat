@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useConversations } from '@/hooks/useConversations'
-import { useProviders } from '@/hooks/useProviders'
-import { Plus, Trash2, Sparkles, KeyRound } from 'lucide-react'
+import { Plus, Trash2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { deleteConversation } from '@/lib/repo'
 import { db, type Conversation } from '@/lib/db'
@@ -41,8 +40,6 @@ function useConversationStatuses(items: Conversation[]): Map<number, ConvStatus>
 
 export function Sidebar({ activeId, onSelect, onNew }: Props) {
   const conversations = useConversations()
-  const providers = useProviders()
-  const activeProvider = providers[0]
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const statuses = useConversationStatuses(conversations)
 
@@ -66,23 +63,6 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
             <span className="text-[10px] text-muted-foreground">开启新的创作</span>
           </div>
           <Sparkles className="w-3.5 h-3.5 text-primary opacity-60" />
-        </button>
-        <button
-          data-card="settings"
-          onClick={() => location.assign('/settings')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-cyan-500/30 hover:border-cyan-500 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200"
-          style={{ backgroundImage: 'var(--gradient-cyan)' }}
-        >
-          <div
-            className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-white"
-            style={{ backgroundImage: 'var(--gradient-cyan-icon)' }}
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-          </div>
-          <div className="flex flex-col items-start flex-1 min-w-0">
-            <span className="text-sm font-semibold text-foreground">管理密钥</span>
-            <span className="text-[10px] text-muted-foreground">当前：{activeProvider?.name ?? '未配置'}</span>
-          </div>
         </button>
       </div>
       <div className="flex-1 overflow-y-auto">
