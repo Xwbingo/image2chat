@@ -91,9 +91,10 @@ export function SettingsSheet() {
       usePillToast.getState().show('请先填写密钥再测试', { variant: 'warning' })
       return
     }
+    const currentCors = (corsDrafts[p.id] ?? p.corsProxy ?? '').trim()
     setTestingId(p.id)
     usePillToast.getState().show('正在连接中转站…', { variant: 'info' })
-    const result = await validateApiKey(p.baseUrl, currentKey, p.corsProxy)
+    const result = await validateApiKey(p.baseUrl, currentKey, currentCors || undefined)
     setTestingId(null)
     if (result.valid) {
       await updateProvider(p.id, { lastValidatedAt: Date.now(), lastValid: 1 })
