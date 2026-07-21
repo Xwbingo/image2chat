@@ -16,6 +16,7 @@ import { addConversation, addImage, markStaleGeneratingAsFailed } from '@/lib/re
 import { db, type ImageRef } from '@/lib/db'
 import { useGenerate } from '@/hooks/useGenerate'
 import { useToast } from '@/components/ui/use-toast'
+import { usePillToast } from '@/hooks/usePillToast'
 
 const MAX_REFS = 3
 
@@ -111,6 +112,12 @@ export function HomePage() {
   }
 
   async function handleNew() {
+    const hasKey = providers.some((p) => (p.apiKey ?? '').length > 0)
+    if (!hasKey) {
+      usePillToast.getState().show('请先配置密钥', { variant: 'warning' })
+      navigate('/settings')
+      return
+    }
     const pid = useSession.getState().activeProviderId ?? providers[0]?.id
     if (!pid) return
 

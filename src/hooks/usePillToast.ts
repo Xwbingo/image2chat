@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type PillToastVariant = 'default' | 'success' | 'warning' | 'info'
+export type PillToastVariant = 'default' | 'success' | 'warning' | 'info' | 'error'
 
 interface PillToastState {
   message: string | null

@@ -6,6 +6,7 @@ const VARIANT_BG: Record<PillToastVariant, string> = {
   success: '#1e8e3e',
   warning: '#f9ab00',
   info: '#1a73e8',
+  error: '#d93025',
 }
 
 export function PillToast() {

@@ -28,6 +28,16 @@ it('shows success variant with green background', () => {
   expect(el).toHaveStyle({ backgroundColor: 'rgb(30, 142, 62)' })
 })
 
+it('shows error variant with red background', () => {
+  render(<PillToast />)
+  act(() => {
+    usePillToast.getState().show('密钥无效', { variant: 'error' })
+  })
+  const el = screen.getByRole('status')
+  expect(el).toHaveTextContent('密钥无效')
+  expect(el).toHaveStyle({ backgroundColor: 'rgb(217, 48, 37)' })
+})
+
 it('auto-dismisses after 2000ms by default', () => {
   render(<PillToast />)
   act(() => {

@@ -11,14 +11,13 @@ import { Trash2, Plus, Zap } from 'lucide-react'
 import { useProviders } from '@/hooks/useProviders'
 import { addProvider, updateProvider, deleteProvider } from '@/lib/repo'
 import { db, type ProviderPreset } from '@/lib/db'
-import { useToast } from '@/components/ui/use-toast'
 import { validateApiKey } from '@/lib/api/validate'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+import { usePillToast } from '@/hooks/usePillToast'
 
 export function SettingsPage() {
   const providers = useProviders()
-  const { toast } = useToast()
   const navigate = useNavigate()
   const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({})
   const [corsDrafts, setCorsDrafts] = useState<Record<number, string>>({})
@@ -28,6 +27,7 @@ export function SettingsPage() {
   const [key, setKey] = useState('')
   const [testingId, setTestingId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [open, setOpen] = useState<boolean>(true)
 
   useEffect(() => {
     setKeyDrafts((prev) => {
@@ -66,7 +66,8 @@ export function SettingsPage() {
           await updateProvider(p.id, patch)
         }
       }
-      navigate('/')
+      usePillToast.getState().show('已保存密钥', { variant: 'success' })
+      setOpen(false)
     } finally {
       setSaving(false)
     }
@@ -89,33 +90,26 @@ export function SettingsPage() {
   async function handleTest(p: ProviderPreset & { id: number }) {
     const currentKey = keyDrafts[p.id] ?? p.apiKey
     if (!currentKey) {
-      toast({ variant: 'destructive', title: '未配置密钥', description: '请先填写密钥再测试' })
+      usePillToast.getState().show('请先填写密钥再测试', { variant: 'warning' })
       return
     }
     setTestingId(p.id)
-    toast({ title: '正在连接中转站…' })
+    usePillToast.getState().show('正在连接中转站…', { variant: 'info' })
     const result = await validateApiKey(p.baseUrl, currentKey, p.corsProxy)
     setTestingId(null)
     if (result.valid) {
       await updateProvider(p.id, { lastValidatedAt: Date.now(), lastValid: 1 })
-      toast({
-        title: '密钥有效 ✓',
-        description: `${p.name} 连接正常，可以生成图片`,
-      })
+      usePillToast.getState().show(`${p.name} 连接正常，可以生成图片`, { variant: 'success' })
     } else {
       await updateProvider(p.id, { lastValidatedAt: Date.now(), lastValid: 0 })
       const msg = result.error?.message ?? '未知错误'
-      toast({
-        variant: 'destructive',
-        title: '无法确认密钥有效',
-        description: msg,
-      })
+      usePillToast.getState().show(`无法确认密钥有效：${msg}`, { variant: 'error' })
     }
   }
 
   return (
-    <Sheet open={true} onOpenChange={(o) => !o && navigate('/')}>
-      <SheetContent side="left" showCloseButton={false} className="w-full sm:max-w-md p-0 flex flex-col">
+    <Sheet open={open} onOpenChange={(o) => { setOpen(o); if (!o) navigate('/') }}>
+      <SheetContent side="right" showCloseButton={false} className="w-full sm:max-w-md p-0 flex flex-col">
         <SheetHeader className="p-3 border-b border-border">
           <SheetTitle>密钥管理</SheetTitle>
         </SheetHeader>
