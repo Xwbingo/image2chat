@@ -5,6 +5,7 @@ import type { Message, ImageRef } from '@/lib/db'
 import { createObjectURLSafe, revokeObjectURLSafe, copyToClipboard } from '@/lib/image'
 import { usePillToast } from '@/hooks/usePillToast'
 import { cn } from '@/lib/utils'
+import { RequestLogDetailsDialog } from './RequestLogDetailsDialog'
 
 interface Props {
   message: Message
@@ -286,6 +287,9 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
               <p className="text-xs text-muted-foreground mt-1">
                 请到「密钥管理」更新密钥后重新发送
               </p>
+            )}
+            {message.errorLogId != null && (
+              <RequestLogDetailsDialog logId={message.errorLogId} />
             )}
           </div>
         )}

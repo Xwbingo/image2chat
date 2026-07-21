@@ -27,7 +27,10 @@ export function ImageViewer({ blobId, prompt, onClose }: Props) {
       currentUrl = createObjectURLSafe(img.blob)
       setMime(img.mimeType)
       setUrl(currentUrl)
-      requestAnimationFrame(() => containerRef.current?.scrollTo({ top: 0 }))
+      requestAnimationFrame(() => {
+        const el = containerRef.current
+        if (el && typeof el.scrollTo === 'function') el.scrollTo({ top: 0 })
+      })
     })
     return () => {
       cancelled = true

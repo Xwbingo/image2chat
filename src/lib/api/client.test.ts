@@ -1,7 +1,11 @@
 // @vitest-environment node
+import 'fake-indexeddb/auto'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/test/server'
+import { db } from '@/lib/db'
 import { generateImage, editImage, editImageMulti } from './client'
+
+beforeEach(async () => { await db.delete(); await db.open() })
 
 beforeAll(() => server.listen())
 afterEach(() => server.resetHandlers())
@@ -32,10 +36,50 @@ describe('generateImage', () => {
       .rejects.toMatchObject({ kind: 'unauthorized' })
   })
 
+  it('persists a RequestLog with logId when 401 fires', async () => {
+    server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
+      new HttpResponse('', { status: 401 }),
+    ))
+    let caught: { kind: string; logId?: number } | null = null
+    try {
+      await generateImage('https://www.packyapi.com', 'bad', { prompt: 'x', size: '1024x1024' })
+    } catch (e) {
+      caught = e as { kind: string; logId?: number }
+    }
+    expect(caught).not.toBeNull()
+    expect(caught!.kind).toBe('unauthorized')
+    expect(typeof caught!.logId).toBe('number')
+    const saved = await db.requestLogs.get(caught!.logId!)
+    expect(saved).toBeDefined()
+    expect(saved!.endpoint).toBe('generate')
+    expect(saved!.errorKind).toBe('unauthorized')
+    expect(saved!.responseStatus).toBe(401)
+    expect(saved!.body).toContain('"prompt":"x"')
+    expect(saved!.headers.Authorization).toBe('Bearer ***')
+  })
+
   it('throws ApiError with kind=network on fetch failure', async () => {
     server.use(http.post('https://www.packyapi.com/v1/images/generations', () => HttpResponse.error()))
     await expect(generateImage('https://www.packyapi.com', 'k', { prompt: 'x', size: '1024x1024' }))
       .rejects.toMatchObject({ kind: 'network' })
+  })
+
+  it('persists a RequestLog with logId when fetch errors (network)', async () => {
+    server.use(http.post('https://www.packyapi.com/v1/images/generations', () => HttpResponse.error()))
+    let caught: { kind: string; logId?: number } | null = null
+    try {
+      await generateImage('https://www.packyapi.com', 'k', { prompt: 'x', size: '1024x1024' })
+    } catch (e) {
+      caught = e as { kind: string; logId?: number }
+    }
+    expect(caught).not.toBeNull()
+    expect(caught!.kind).toBe('network')
+    expect(typeof caught!.logId).toBe('number')
+    const saved = await db.requestLogs.get(caught!.logId!)
+    expect(saved).toBeDefined()
+    expect(saved!.responseStatus).toBeNull()
+    expect(saved!.responseBody).toBeNull()
+    expect(saved!.errorKind).toBe('network')
   })
 })
 

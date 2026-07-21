@@ -65,7 +65,6 @@ export function SettingsSheet() {
           await updateProvider(p.id, patch)
         }
       }
-      usePillToast.getState().show('已保存密钥', { variant: 'success' })
       useSettings.getState().closeSettings()
     } finally {
       setSaving(false)

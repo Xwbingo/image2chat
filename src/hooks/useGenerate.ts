@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { db, type ImageRef } from '@/lib/db'
 import { getProvider, addMessage, updateMessageStatus, setMessageBlobId, setMessageRemoteUrl, addImage, touchConversation } from '@/lib/repo'
-import { generateImage, editImageMulti } from '@/lib/api/client'
+import { generateImage, editImageMulti, type LogContext } from '@/lib/api/client'
 import { extractImageFromResponse } from '@/lib/api/normalize'
 import { applyCorsProxy } from '@/lib/api/proxy'
 import type { ApiError } from '@/lib/api/errors'
@@ -54,6 +54,15 @@ export function useGenerate() {
         await touchConversation(conversationId)
 
         let response: unknown
+        const logContext: LogContext = {
+          providerId: provider.id ?? null,
+          providerName: provider.name,
+          providerBaseUrl: provider.baseUrl,
+          conversationId,
+          messageId: assistantId,
+          promptLength: prompt.length,
+          refImageCount: imageRefs.length,
+        }
         if (imageRefs.length > 0) {
           const blobs: Blob[] = []
           for (const ref of imageRefs) {
@@ -61,9 +70,9 @@ export function useGenerate() {
             if (!img) throw { kind: 'bad_request', message: `找不到参考图 blobId=${ref.blobId}` }
             blobs.push(img.blob)
           }
-          response = await editImageMulti(provider.baseUrl, provider.apiKey, prompt, blobs, size, provider.corsProxy)
+          response = await editImageMulti(provider.baseUrl, provider.apiKey, prompt, blobs, size, provider.corsProxy, logContext)
         } else {
-          response = await generateImage(provider.baseUrl, provider.apiKey, { prompt, size }, provider.corsProxy)
+          response = await generateImage(provider.baseUrl, provider.apiKey, { prompt, size }, provider.corsProxy, logContext)
         }
 
         const extracted = extractImageFromResponse(response)
@@ -93,7 +102,10 @@ export function useGenerate() {
         const err: ApiError = isApiError(e) ? e : parseNetworkError(e)
         if (assistantId != null) {
           try {
-            await db.messages.update(assistantId, { completedAt: Date.now() })
+            await db.messages.update(assistantId, {
+              completedAt: Date.now(),
+              ...(err.logId != null ? { errorLogId: err.logId } : {}),
+            })
             await updateMessageStatus(assistantId, 'failed', err.kind)
           } catch { }
         }

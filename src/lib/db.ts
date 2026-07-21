@@ -45,6 +45,7 @@ export interface Message {
   size?: string
   status: MessageStatus
   errorCode?: string
+  errorLogId?: number
   createdAt: number
   startedAt?: number
   completedAt?: number
@@ -59,11 +60,38 @@ export interface ImageBlob {
   createdAt: number
 }
 
+export interface RequestLog {
+  id?: number
+  timestamp: number
+  durationMs: number | null
+  endpoint: 'generate' | 'edit'
+  providerId: number | null
+  providerName: string | null
+  providerBaseUrl: string | null
+  model: string | null
+  corsProxyApplied: boolean
+  url: string
+  method: string
+  headers: Record<string, string>
+  body: string
+  promptLength: number | null
+  refImageCount: number | null
+  conversationId: number | null
+  messageId: number | null
+  responseStatus: number | null
+  responseHeaders: Record<string, string> | null
+  responseBody: string | null
+  errorKind: string
+  errorMessage: string
+  userAgent: string | null
+}
+
 export class Image2ChatDB extends Dexie {
   providers!: Table<ProviderPreset, number>
   conversations!: Table<Conversation, number>
   messages!: Table<Message, number>
   images!: Table<ImageBlob, number>
+  requestLogs!: Table<RequestLog, number>
 
   constructor() {
     super('image2chat')
@@ -108,6 +136,7 @@ export class Image2ChatDB extends Dexie {
       conversations: '++id, updatedAt, providerPresetId, title',
       messages: '++id, conversationId, createdAt, status',
       images: '++id, createdAt',
+      requestLogs: '++id, timestamp',
     })
   }
 }

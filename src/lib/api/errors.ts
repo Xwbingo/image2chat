@@ -1,11 +1,11 @@
 export type ApiError =
-  | { kind: 'unauthorized'; message: string }
-  | { kind: 'insufficient'; message: string }
-  | { kind: 'rate_limited'; message: string }
-  | { kind: 'content_filtered'; message: string }
-  | { kind: 'bad_request'; message: string }
-  | { kind: 'server_error'; message: string }
-  | { kind: 'network'; message: string }
+  | { kind: 'unauthorized'; message: string; logId?: number }
+  | { kind: 'insufficient'; message: string; logId?: number }
+  | { kind: 'rate_limited'; message: string; logId?: number }
+  | { kind: 'content_filtered'; message: string; logId?: number }
+  | { kind: 'bad_request'; message: string; logId?: number }
+  | { kind: 'server_error'; message: string; logId?: number }
+  | { kind: 'network'; message: string; logId?: number }
 
 interface OpenAiErrorBody { error?: { message?: string; type?: string; code?: string } }
 
