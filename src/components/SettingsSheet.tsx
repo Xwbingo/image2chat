@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Trash2, Plus, Zap } from 'lucide-react'
+import { Trash2, Plus, Zap, ChevronDown } from 'lucide-react'
 import { useProviders } from '@/hooks/useProviders'
 import { addProvider, updateProvider, deleteProvider } from '@/lib/repo'
 import { db, type ProviderPreset } from '@/lib/db'
@@ -145,30 +145,38 @@ export function SettingsSheet() {
                         onChange={(e) => setKeyDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
                       />
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">CORS 代理（可选）</Label>
-                      <Input
-                        placeholder="https://corsproxy.io/?"
-                        value={corsDrafts[pid] ?? ''}
-                        onChange={(e) => setCorsDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTest({ ...p, id: pid })}
-                        disabled={testingId === pid}
-                        aria-label="测试密钥"
-                      >
-                        <Zap className="w-3 h-3 mr-1" /> 测试
-                      </Button>
-                      {p.isBuiltIn === 0 && (
-                        <Button size="sm" variant="outline" onClick={() => deleteProvider(pid)}>
-                          <Trash2 className="w-3 h-3 mr-1" /> 删除
-                        </Button>
-                      )}
-                    </div>
+                    <details className="group">
+                      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none flex items-center gap-1 py-1 list-none [&::-webkit-details-marker]:hidden">
+                        <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
+                        <span>高级配置</span>
+                      </summary>
+                      <div className="space-y-3 mt-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">CORS 代理（可选）</Label>
+                          <Input
+                            placeholder="https://corsproxy.io/?"
+                            value={corsDrafts[pid] ?? ''}
+                            onChange={(e) => setCorsDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleTest({ ...p, id: pid })}
+                            disabled={testingId === pid}
+                            aria-label="测试密钥"
+                          >
+                            <Zap className="w-3 h-3 mr-1" /> 测试
+                          </Button>
+                          {p.isBuiltIn === 0 && (
+                            <Button size="sm" variant="outline" onClick={() => deleteProvider(pid)}>
+                              <Trash2 className="w-3 h-3 mr-1" /> 删除
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </details>
                   </CardContent>
                 </Card>
               )
