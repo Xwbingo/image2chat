@@ -221,7 +221,10 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
       ? Math.max(0, message.completedAt - message.startedAt)
       : null
   const trimmedProvider = message.providerName?.trim()
-  const showProvenance = !!trimmedProvider
+  const showProvenance =
+    message.kind === 'image_result' &&
+    (message.status === 'generating' || message.status === 'success' || message.status === 'failed') &&
+    !!trimmedProvider
 
   return (
     <div className="flex justify-start mb-3">

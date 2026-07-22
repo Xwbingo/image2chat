@@ -284,3 +284,25 @@ it('never renders provenance row in user messages', () => {
   )
   expect(screen.queryByTestId('provider-name')).not.toBeInTheDocument()
 })
+
+it('omits provenance row for assistant status=pending', () => {
+  render(
+    <MessageBubble
+      message={makeMsg({ status: 'pending', kind: 'image_result', providerName: 'Packy' })}
+      onImageClick={() => {}}
+      onReference={() => {}}
+    />,
+  )
+  expect(screen.queryByTestId('provider-name')).not.toBeInTheDocument()
+})
+
+it('omits provenance row for assistant non-image_result kind', () => {
+  render(
+    <MessageBubble
+      message={makeMsg({ status: 'success', kind: 'text_prompt', providerName: 'Packy' })}
+      onImageClick={() => {}}
+      onReference={() => {}}
+    />,
+  )
+  expect(screen.queryByTestId('provider-name')).not.toBeInTheDocument()
+})
