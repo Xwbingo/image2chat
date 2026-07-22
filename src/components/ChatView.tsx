@@ -64,6 +64,7 @@ export function ChatView({
   const messages = useMessages(conversationId)
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomDockRef = useRef<HTMLDivElement>(null)
+  const anchorTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const [bottomPadding, setBottomPadding] = useState<string>()
   const [leftOffset, setLeftOffset] = useState(0)
   const [scrollY, setScrollY] = useState(0)
@@ -87,14 +88,19 @@ export function ChatView({
       const nearBottom = current.scrollHeight - current.scrollTop - current.clientHeight <= 80
       setBottomPadding(`${entry.contentRect.height + 16}px`)
       if (nearBottom) {
-        setTimeout(() => {
+        if (anchorTimerRef.current !== undefined) clearTimeout(anchorTimerRef.current)
+        anchorTimerRef.current = setTimeout(() => {
+          anchorTimerRef.current = undefined
           const current = scrollRef.current
           if (current) current.scrollTo({ top: current.scrollHeight })
         })
       }
     })
     observer.observe(dock)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      if (anchorTimerRef.current !== undefined) clearTimeout(anchorTimerRef.current)
+    }
   }, [])
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeAll, beforeEach, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, vi } from 'vitest'
 import { db } from '@/lib/db'
 import { ChatView } from './ChatView'
 
@@ -49,6 +49,11 @@ beforeEach(async () => {
   vi.stubGlobal('ResizeObserver', MockResizeObserver)
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
+
 function renderChatView(props: Partial<React.ComponentProps<typeof ChatView>> = {}) {
   return render(
     <ChatView
@@ -87,7 +92,8 @@ it('uses safe-area-aware fallback padding when ResizeObserver is unavailable', (
   })
 })
 
-it('anchors near-bottom content after the bottom dock resizes', async () => {
+it('anchors near-bottom content to the post-layout scroll height after the bottom dock resizes', () => {
+  vi.useFakeTimers()
   renderChatView()
   const scroll = screen.getByTestId('chat-scroll')
   const scrollTo = vi.fn()
@@ -96,15 +102,17 @@ it('anchors near-bottom content after the bottom dock resizes', async () => {
   setDimension(scroll, 'scrollTop', 620)
   setDimension(scroll, 'clientHeight', 300)
 
-  await act(async () => {
-    resizeCallback([{ contentRect: { height: 220 } } as ResizeObserverEntry], {} as ResizeObserver)
-    await new Promise((resolve) => setTimeout(resolve, 0))
-  })
+  act(() => resizeCallback([{ contentRect: { height: 220 } } as ResizeObserverEntry], {} as ResizeObserver))
+  setDimension(scroll, 'scrollHeight', 1236)
+  expect(scrollTo).not.toHaveBeenCalled()
 
-  expect(scrollTo).toHaveBeenCalledWith({ top: 1000 })
+  act(() => vi.runOnlyPendingTimers())
+
+  expect(scrollTo).toHaveBeenCalledWith({ top: 1236 })
 })
 
-it('does not anchor when the user is reading older content', () => {
+it('does not anchor after the deferred phase when the user is reading older content', () => {
+  vi.useFakeTimers()
   renderChatView()
   const scroll = screen.getByTestId('chat-scroll')
   const scrollTo = vi.fn()
@@ -114,13 +122,26 @@ it('does not anchor when the user is reading older content', () => {
   setDimension(scroll, 'clientHeight', 300)
 
   act(() => resizeCallback([{ contentRect: { height: 220 } } as ResizeObserverEntry], {} as ResizeObserver))
+  act(() => vi.runOnlyPendingTimers())
 
   expect(scrollTo).not.toHaveBeenCalled()
 })
 
-it('disconnects the bottom dock observer on unmount', () => {
+it('cancels deferred anchoring and disconnects the bottom dock observer on unmount', () => {
+  vi.useFakeTimers()
   const { unmount } = renderChatView()
+  const scroll = screen.getByTestId('chat-scroll')
+  const scrollTo = vi.fn()
+  scroll.scrollTo = scrollTo
+  setDimension(scroll, 'scrollHeight', 1000)
+  setDimension(scroll, 'scrollTop', 620)
+  setDimension(scroll, 'clientHeight', 300)
+
+  act(() => resizeCallback([{ contentRect: { height: 220 } } as ResizeObserverEntry], {} as ResizeObserver))
   unmount()
+  act(() => vi.runOnlyPendingTimers())
+
+  expect(scrollTo).not.toHaveBeenCalled()
   expect(disconnect).toHaveBeenCalledTimes(1)
 })
 
