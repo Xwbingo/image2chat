@@ -58,6 +58,55 @@ it('success path: inserts pending msg, calls API, persists blob, marks success',
   expect(assistant.remoteImageUrl).toBeUndefined()
 })
 
+it('success path: assistant row stores request-time providerName and survives provider rename', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
+    HttpResponse.json({ created: 1, data: [{ b64_json: IMAGE_B64 }] }),
+  ))
+
+  const pid = await db.providers.add({ name: 'OriginalName', baseUrl: 'https://www.packyapi.com', apiKey: 'secret-key-do-not-store', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+
+  const { generate } = useGenerate()
+  const res = (await generate(cid, 'cat', '2048x1152')) as { messageId: number }
+  expect(res?.messageId).toBeGreaterThan(0)
+
+  await db.providers.update(pid, { name: 'RenamedLater' })
+
+  const msgs = await db.messages.toArray()
+  const assistant = msgs.find((m) => m.role === 'assistant')!
+  const user = msgs.find((m) => m.role === 'user')!
+  expect(assistant.providerName).toBe('OriginalName')
+  expect(user.providerName).toBeUndefined()
+  const stored = JSON.stringify(assistant)
+  expect(stored).not.toContain('secret-key-do-not-store')
+  expect(stored).not.toContain('https://www.packyapi.com')
+})
+
+it('failure path: assistant row stores request-time providerName and survives provider rename', async () => {
+  server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
+    new HttpResponse('', { status: 401 }),
+  ))
+
+  const pid = await db.providers.add({ name: 'OriginalName', baseUrl: 'https://www.packyapi.com', apiKey: 'secret-key-do-not-store', type: 'packy', isBuiltIn: 0, createdAt: 0 })
+  const cid = await db.conversations.add({ title: 'c', createdAt: 0, updatedAt: 0, providerPresetId: pid })
+
+  const { generate } = useGenerate()
+  const res = (await generate(cid, 'cat', '2048x1152')) as { error: { kind: string } }
+  expect(res?.error?.kind).toBe('unauthorized')
+
+  await db.providers.update(pid, { name: 'RenamedLater' })
+
+  const msgs = await db.messages.toArray()
+  const assistant = msgs.find((m) => m.role === 'assistant')!
+  const user = msgs.find((m) => m.role === 'user')!
+  expect(assistant.status).toBe('failed')
+  expect(assistant.providerName).toBe('OriginalName')
+  expect(user.providerName).toBeUndefined()
+  const stored = JSON.stringify(assistant)
+  expect(stored).not.toContain('secret-key-do-not-store')
+  expect(stored).not.toContain('https://www.packyapi.com')
+})
+
 it('error path: marks message failed with errorCode', async () => {
   server.use(http.post('https://www.packyapi.com/v1/images/generations', () =>
     new HttpResponse('', { status: 401 }),

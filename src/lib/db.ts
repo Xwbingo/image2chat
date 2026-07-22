@@ -51,6 +51,7 @@ export interface Message {
   completedAt?: number
   editSourceMessageId?: number
   localUploadName?: string
+  providerName?: string
 }
 
 export interface ImageBlob {

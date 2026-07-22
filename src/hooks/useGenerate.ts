@@ -50,6 +50,7 @@ export function useGenerate() {
         assistantId = await addMessage({
           conversationId, role: 'assistant', kind: 'image_result',
           size, status: 'generating', createdAt: startedAt, startedAt,
+          providerName: provider.name,
         })
         await touchConversation(conversationId)
 
