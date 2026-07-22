@@ -229,3 +229,58 @@ it('renders copy-prompt pill when prompt exists', () => {
   )
   expect(screen.getByText('复制 prompt')).toBeInTheDocument()
 })
+
+it.each([
+  { status: 'generating' as const, kind: 'image_result' as const },
+  { status: 'success' as const, kind: 'image_result' as const },
+  { status: 'failed' as const, kind: 'image_result' as const },
+])('renders relay provenance row for assistant status=$status', ({ status, kind }) => {
+  render(
+    <MessageBubble
+      message={makeMsg({ status, kind, providerName: 'Packy' })}
+      onImageClick={() => {}}
+      onReference={() => {}}
+    />,
+  )
+  const row = screen.getByTestId('provider-name')
+  expect(row).toHaveTextContent('中转站：Packy')
+  expect(row).toHaveClass('mt-2', 'text-xs', 'text-muted-foreground')
+})
+
+it('omits provenance row for old assistant messages without providerName', () => {
+  render(
+    <MessageBubble
+      message={makeMsg({ status: 'success' })}
+      onImageClick={() => {}}
+      onReference={() => {}}
+    />,
+  )
+  expect(screen.queryByTestId('provider-name')).not.toBeInTheDocument()
+  expect(screen.queryByText(/未知/)).not.toBeInTheDocument()
+})
+
+it('omits provenance row when providerName is whitespace-only', () => {
+  render(
+    <MessageBubble
+      message={makeMsg({ status: 'success', providerName: '   ' })}
+      onImageClick={() => {}}
+      onReference={() => {}}
+    />,
+  )
+  expect(screen.queryByTestId('provider-name')).not.toBeInTheDocument()
+})
+
+it('never renders provenance row in user messages', () => {
+  render(
+    <MessageBubble
+      message={{
+        id: 99, conversationId: 1, role: 'user', kind: 'text_prompt',
+        prompt: 'hello', status: 'success', createdAt: 0,
+        providerName: 'Packy',
+      }}
+      onImageClick={() => {}}
+      onReference={() => {}}
+    />,
+  )
+  expect(screen.queryByTestId('provider-name')).not.toBeInTheDocument()
+})

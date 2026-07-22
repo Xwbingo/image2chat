@@ -220,6 +220,8 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
     message.startedAt != null && message.completedAt != null
       ? Math.max(0, message.completedAt - message.startedAt)
       : null
+  const trimmedProvider = message.providerName?.trim()
+  const showProvenance = !!trimmedProvider
 
   return (
     <div className="flex justify-start mb-3">
@@ -291,6 +293,11 @@ export function MessageBubble({ message, onImageClick, onRemoteClick, onReferenc
             {message.errorLogId != null && (
               <RequestLogDetailsDialog logId={message.errorLogId} />
             )}
+          </div>
+        )}
+        {showProvenance && (
+          <div data-testid="provider-name" className="mt-2 text-xs text-muted-foreground">
+            中转站：{trimmedProvider}
           </div>
         )}
       </div>
