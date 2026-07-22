@@ -8,7 +8,7 @@ import { OfflineBanner } from '@/components/OfflineBanner'
 import { PillToast } from '@/components/PillToast'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
-import { Menu, Settings } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useProviders } from '@/hooks/useProviders'
 import { useSession } from '@/stores/useSession'
@@ -167,11 +167,6 @@ export function HomePage() {
           <Sidebar activeId={conversationId} onSelect={(id) => navigate(`/c/${id}`)} onNew={handleNew} />
         </div>
         <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="md:hidden border-b border-border p-2">
-            <Button size="icon" variant="ghost" onClick={() => setDrawerOpen(true)}>
-              <Menu className="w-5 h-5" />
-            </Button>
-          </div>
           {conversationId == null ? (
             <div className="flex-1 flex flex-col">
               <header className="flex items-center justify-end gap-2 p-3 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30"
@@ -194,6 +189,7 @@ export function HomePage() {
             <ChatView
               conversationId={conversationId}
               onBack={() => navigate('/')}
+              onMenu={() => setDrawerOpen(true)}
               onSettings={() => useSettings.getState().openSettings()}
               onOpenImage={(blobId) => setViewerBlobId(blobId)}
               onRemoteClick={handleRemoteImageClick}

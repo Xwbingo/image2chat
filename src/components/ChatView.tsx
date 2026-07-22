@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Menu, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useMessages } from '@/hooks/useMessages'
 import { updateMessageStatus } from '@/lib/repo'
@@ -14,6 +14,7 @@ interface Props {
   conversationId: number
   title?: string
   onBack: () => void
+  onMenu?: () => void
   onSettings: () => void
   onOpenImage: (blobId: number) => void
   onRemoteClick?: (url: string) => void
@@ -48,6 +49,7 @@ export function ChatView({
   conversationId,
   title,
   onBack,
+  onMenu,
   onSettings,
   onOpenImage,
   onRemoteClick,
@@ -67,6 +69,7 @@ export function ChatView({
   const anchorTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const [bottomPadding, setBottomPadding] = useState<string>()
   const [leftOffset, setLeftOffset] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
   const [scrollY, setScrollY] = useState(0)
   const hasGenerating = messages.some((m) => m.status === 'generating')
 
@@ -105,7 +108,11 @@ export function ChatView({
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const update = () => setLeftOffset(window.innerWidth >= MD_BREAKPOINT ? SIDEBAR_PX : 0)
+    const update = () => {
+      const mobile = window.innerWidth < MD_BREAKPOINT
+      setIsMobile(mobile)
+      setLeftOffset(mobile ? 0 : SIDEBAR_PX)
+    }
     update()
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
@@ -134,9 +141,15 @@ export function ChatView({
         )}
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
       >
-        <Button size="icon" variant="ghost" onClick={onBack} aria-label="back">
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
+        {isMobile ? (
+          <Button size="icon" variant="ghost" onClick={onMenu} aria-label="菜单">
+            <Menu className="w-4 h-4" />
+          </Button>
+        ) : (
+          <Button size="icon" variant="ghost" onClick={onBack} aria-label="back">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        )}
         <h2 className="font-semibold truncate flex-1">{title ?? `会话 #${conversationId}`}</h2>
         <ThemeToggle />
         <Button size="icon" variant="ghost" onClick={onSettings} aria-label="密钥管理">

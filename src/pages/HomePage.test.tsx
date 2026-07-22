@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
@@ -46,6 +46,10 @@ function renderHomePage() {
       </Routes>
     </MemoryRouter>,
   )
+}
+
+function setWindowWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width })
 }
 
 beforeEach(async () => {
@@ -180,4 +184,26 @@ it('handleReorderRefs moves an item from one index to another', async () => {
     expect(after[1]).toBe(before[2])
     expect(after[2]).toBe(before[0])
   })
+})
+
+it('passes an onMenu handler to ChatView that opens the left drawer when invoked', async () => {
+  await db.conversations.add({ title: 'Chat', createdAt: 0, updatedAt: 0, providerPresetId: 1 })
+  renderHomePage()
+  expect(typeof capturedProps.onMenu).toBe('function')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  act(() => { (capturedProps.onMenu as () => void)() })
+  await waitFor(() => {
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+})
+
+it('does not render a standalone < md hamburger row above ChatView', () => {
+  setWindowWidth(500)
+  fireEvent(window, new Event('resize'))
+  renderHomePage()
+  // Mocked ChatView renders exactly 2 buttons (发送, 引用按钮). After removing the
+  // standalone row, no extra unlabeled Menu button should be present.
+  const buttons = screen.getAllByRole('button')
+  expect(buttons).toHaveLength(2)
+  expect(buttons.map((b) => b.textContent?.trim())).toEqual(['发送', '引用按钮'])
 })

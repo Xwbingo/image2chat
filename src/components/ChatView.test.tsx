@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, vi } from 'vitest'
 import { db } from '@/lib/db'
@@ -21,6 +21,17 @@ class MockResizeObserver {
 
 function setDimension(element: HTMLElement, name: 'scrollHeight' | 'scrollTop' | 'clientHeight', value: number) {
   Object.defineProperty(element, name, { configurable: true, value, writable: true })
+}
+
+function setWindowWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width })
+}
+
+function getHeader() {
+  const title = screen.getByRole('heading', { level: 2 })
+  const header = title.closest('header')
+  if (!header) throw new Error('header element not found')
+  return header as HTMLElement
 }
 
 vi.mock('./MessageBubble', () => ({
@@ -275,4 +286,38 @@ it('enables Send when no message is generating', () => {
   // The empty-prompt guard disables when text is empty; we just assert it's NOT disabled-by-generating
   // by checking the disabled attribute is purely from the empty-prompt guard:
   expect(screen.getByRole('button', { name: '上传参考图（可多选）' })).not.toBeDisabled()
+})
+
+it('renders an inline hamburger with aria-label "菜单" inside the header at viewport < md', () => {
+  setWindowWidth(500)
+  fireEvent(window, new Event('resize'))
+  renderChatView()
+  const header = getHeader()
+  expect(within(header).getByRole('button', { name: '菜单' })).toBeInTheDocument()
+})
+
+it('hides the back button inside the header at viewport < md so the hamburger replaces it', () => {
+  setWindowWidth(500)
+  fireEvent(window, new Event('resize'))
+  renderChatView()
+  const header = getHeader()
+  expect(within(header).queryByRole('button', { name: 'back' })).not.toBeInTheDocument()
+})
+
+it('keeps the back button and hides the hamburger inside the header at viewport >= md', () => {
+  setWindowWidth(1024)
+  fireEvent(window, new Event('resize'))
+  renderChatView()
+  const header = getHeader()
+  expect(within(header).getByRole('button', { name: 'back' })).toBeInTheDocument()
+  expect(within(header).queryByRole('button', { name: '菜单' })).not.toBeInTheDocument()
+})
+
+it('invokes onMenu when the inline hamburger is clicked at viewport < md', async () => {
+  setWindowWidth(500)
+  fireEvent(window, new Event('resize'))
+  const onMenu = vi.fn()
+  renderChatView({ onMenu })
+  await userEvent.click(screen.getByRole('button', { name: '菜单' }))
+  expect(onMenu).toHaveBeenCalledTimes(1)
 })
