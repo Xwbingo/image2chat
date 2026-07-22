@@ -12,4 +12,5 @@ functions/cors-shared.js
 .DS_Store
 /.idea/
 docs/superpowers/plans/*-post-review-fixes.md
+.worktrees/
 docs/
