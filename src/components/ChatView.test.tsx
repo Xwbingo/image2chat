@@ -1,11 +1,27 @@
 import 'fake-indexeddb/auto'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, vi } from 'vitest'
 import { db } from '@/lib/db'
 import { ChatView } from './ChatView'
 
 let mockMessages: ReturnType<typeof Object>[] = []
+let resizeCallback: ResizeObserverCallback
+const observe = vi.fn()
+const disconnect = vi.fn()
+
+class MockResizeObserver {
+  constructor(callback: ResizeObserverCallback) {
+    resizeCallback = callback
+  }
+
+  observe = observe
+  disconnect = disconnect
+}
+
+function setDimension(element: HTMLElement, name: 'scrollHeight' | 'scrollTop' | 'clientHeight', value: number) {
+  Object.defineProperty(element, name, { configurable: true, value, writable: true })
+}
 
 vi.mock('./MessageBubble', () => ({
   MessageBubble: ({ message, onReference }: { message: { id: number; kind: string }; onReference: (id: number) => void }) => (
@@ -28,6 +44,9 @@ beforeEach(async () => {
   await db.delete()
   await db.open()
   mockMessages = []
+  observe.mockClear()
+  disconnect.mockClear()
+  vi.stubGlobal('ResizeObserver', MockResizeObserver)
 })
 
 function renderChatView(props: Partial<React.ComponentProps<typeof ChatView>> = {}) {
@@ -49,6 +68,61 @@ function renderChatView(props: Partial<React.ComponentProps<typeof ChatView>> = 
     />,
   )
 }
+
+it('observes the bottom dock and adds 16px to its measured height for scroll padding', () => {
+  renderChatView()
+  const dock = screen.getByTestId('chat-bottom-dock')
+  expect(observe).toHaveBeenCalledWith(dock)
+
+  act(() => resizeCallback([{ contentRect: { height: 220 } } as ResizeObserverEntry], {} as ResizeObserver))
+
+  expect(screen.getByTestId('chat-scroll')).toHaveStyle({ paddingBottom: '236px' })
+})
+
+it('uses safe-area-aware fallback padding when ResizeObserver is unavailable', () => {
+  vi.stubGlobal('ResizeObserver', undefined)
+  renderChatView()
+  expect(screen.getByTestId('chat-scroll')).toHaveStyle({
+    paddingBottom: 'calc(9rem + env(safe-area-inset-bottom, 0px))',
+  })
+})
+
+it('anchors near-bottom content after the bottom dock resizes', async () => {
+  renderChatView()
+  const scroll = screen.getByTestId('chat-scroll')
+  const scrollTo = vi.fn()
+  scroll.scrollTo = scrollTo
+  setDimension(scroll, 'scrollHeight', 1000)
+  setDimension(scroll, 'scrollTop', 620)
+  setDimension(scroll, 'clientHeight', 300)
+
+  await act(async () => {
+    resizeCallback([{ contentRect: { height: 220 } } as ResizeObserverEntry], {} as ResizeObserver)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  expect(scrollTo).toHaveBeenCalledWith({ top: 1000 })
+})
+
+it('does not anchor when the user is reading older content', () => {
+  renderChatView()
+  const scroll = screen.getByTestId('chat-scroll')
+  const scrollTo = vi.fn()
+  scroll.scrollTo = scrollTo
+  setDimension(scroll, 'scrollHeight', 1000)
+  setDimension(scroll, 'scrollTop', 500)
+  setDimension(scroll, 'clientHeight', 300)
+
+  act(() => resizeCallback([{ contentRect: { height: 220 } } as ResizeObserverEntry], {} as ResizeObserver))
+
+  expect(scrollTo).not.toHaveBeenCalled()
+})
+
+it('disconnects the bottom dock observer on unmount', () => {
+  const { unmount } = renderChatView()
+  unmount()
+  expect(disconnect).toHaveBeenCalledTimes(1)
+})
 
 it('pins statusBar and Composer in a single fixed container at viewport bottom', () => {
   renderChatView()

@@ -63,6 +63,8 @@ export function ChatView({
 }: Props) {
   const messages = useMessages(conversationId)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const bottomDockRef = useRef<HTMLDivElement>(null)
+  const [bottomPadding, setBottomPadding] = useState<string>()
   const [leftOffset, setLeftOffset] = useState(0)
   const [scrollY, setScrollY] = useState(0)
   const hasGenerating = messages.some((m) => m.status === 'generating')
@@ -73,6 +75,26 @@ export function ChatView({
     const onScroll = () => setScrollY(el.scrollTop)
     el.addEventListener('scroll', onScroll)
     return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    const dock = bottomDockRef.current
+    if (!dock || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver((entries) => {
+      const current = scrollRef.current
+      const entry = entries[0]
+      if (!current || !entry) return
+      const nearBottom = current.scrollHeight - current.scrollTop - current.clientHeight <= 80
+      setBottomPadding(`${entry.contentRect.height + 16}px`)
+      if (nearBottom) {
+        setTimeout(() => {
+          const current = scrollRef.current
+          if (current) current.scrollTo({ top: current.scrollHeight })
+        })
+      }
+    })
+    observer.observe(dock)
+    return () => observer.disconnect()
   }, [])
 
   useEffect(() => {
@@ -117,7 +139,8 @@ export function ChatView({
       </header>
       <div
         ref={scrollRef}
-        style={{ paddingBottom: `calc(9rem + env(safe-area-inset-bottom, 0px))` }}
+        data-testid="chat-scroll"
+        style={{ paddingBottom: bottomPadding ?? `calc(9rem + env(safe-area-inset-bottom, 0px))` }}
         className="flex-1 overflow-y-auto p-3 sm:p-4"
       >
         {messages.length === 0 ? (
@@ -156,6 +179,8 @@ export function ChatView({
         )}
       </div>
       <div
+        ref={bottomDockRef}
+        data-testid="chat-bottom-dock"
         style={{
           position: 'fixed',
           left: leftOffset,
