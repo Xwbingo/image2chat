@@ -14,3 +14,4 @@ functions/cors-shared.js
 docs/superpowers/plans/*-post-review-fixes.md
 .worktrees/
 docs/
+/.codegraph/
