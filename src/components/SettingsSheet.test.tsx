@@ -279,3 +279,12 @@ it('does not render ThemeToggle inside the sheet', async () => {
   await screen.findByText('密钥管理(完成后新建对话)')
   expect(screen.queryByLabelText(/主题|toggle theme|theme/i)).not.toBeInTheDocument()
 })
+
+it('uses w-[min(320px,85vw)] on SheetContent so the sheet shrinks on mobile', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  renderOpen()
+  const content = (await screen.findAllByRole('dialog'))
+    .find((el) => el.className.includes('p-0'))!
+  expect(content.className).toContain('w-[min(320px,85vw)]')
+  expect(content.className).toContain('sm:max-w-md')
+})
