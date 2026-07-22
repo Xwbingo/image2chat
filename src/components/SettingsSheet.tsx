@@ -15,12 +15,13 @@ import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { usePillToast } from '@/hooks/usePillToast'
 import { useSettings } from '@/stores/useSettings'
+import { corsDraftFromValue, corsValueFromDraft, type CorsDraft } from '@/lib/api/corsConfig'
 
 export function SettingsSheet() {
   const providers = useProviders()
   const open = useSettings((s) => s.open)
   const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({})
-  const [corsDrafts, setCorsDrafts] = useState<Record<number, string>>({})
+  const [corsDrafts, setCorsDrafts] = useState<Record<number, CorsDraft>>({})
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
@@ -39,13 +40,16 @@ export function SettingsSheet() {
       return k
     })
     setCorsDrafts((prev) => {
-      if (Object.keys(prev).length > 0) return prev
-      const c: Record<number, string> = {}
+      const next: Record<number, CorsDraft> = { ...prev }
+      let changed = false
       for (const p of providers) {
         if (p.id == null) continue
-        c[p.id] = p.corsProxy ?? ''
+        if (next[p.id] == null) {
+          next[p.id] = corsDraftFromValue(p.corsProxy)
+          changed = true
+        }
       }
-      return c
+      return changed ? next : prev
     })
   }, [providers])
 
@@ -56,10 +60,9 @@ export function SettingsSheet() {
         if (p.id == null) continue
         const patch: Partial<ProviderPreset> = {}
         if (keyDrafts[p.id] !== p.apiKey) patch.apiKey = keyDrafts[p.id] ?? ''
-        const currentCors = p.corsProxy ?? ''
-        if (corsDrafts[p.id] !== currentCors) {
-          const v = (corsDrafts[p.id] ?? '').trim()
-          patch.corsProxy = v ? v : undefined
+        const newValue = corsValueFromDraft(corsDrafts[p.id] ?? { mode: 'direct', customValue: '' })
+        if (newValue !== (p.corsProxy ?? undefined)) {
+          patch.corsProxy = newValue
         }
         if (Object.keys(patch).length > 0) {
           await updateProvider(p.id, patch)
@@ -91,10 +94,10 @@ export function SettingsSheet() {
       usePillToast.getState().show('请先填写密钥再测试', { variant: 'warning' })
       return
     }
-    const currentCors = (corsDrafts[p.id] ?? p.corsProxy ?? '').trim()
+    const currentCors = corsValueFromDraft(corsDrafts[p.id] ?? { mode: 'direct', customValue: '' })
     setTestingId(p.id)
     usePillToast.getState().show('正在连接中转站…', { variant: 'info' })
-    const result = await validateApiKey(p.baseUrl, currentKey, currentCors || undefined)
+    const result = await validateApiKey(p.baseUrl, currentKey, currentCors)
     setTestingId(null)
     if (result.valid) {
       await updateProvider(p.id, { lastValidatedAt: Date.now(), lastValid: 1 })
@@ -120,6 +123,7 @@ export function SettingsSheet() {
             {providers.map((p) => {
               if (p.id == null) return null
               const pid = p.id
+              const corsDraft = corsDrafts[pid] ?? { mode: 'direct', customValue: '' }
               return (
                 <Card key={pid}>
                   <CardHeader className="flex flex-row items-center justify-between">
@@ -166,11 +170,33 @@ export function SettingsSheet() {
                       <div className="space-y-3 mt-2">
                         <div className="space-y-1">
                           <Label className="text-xs">CORS 代理（可选）</Label>
-                          <Input
-                            placeholder="https://corsproxy.io/?"
-                            value={corsDrafts[pid] ?? ''}
-                            onChange={(e) => setCorsDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
-                          />
+                          <select
+                            aria-label={`CORS 模式 ${p.name}`}
+                            value={corsDraft.mode}
+                            onChange={(e) => {
+                              const mode = e.target.value as CorsDraft['mode']
+                              setCorsDrafts((prev) => ({
+                                ...prev,
+                                [pid]: { mode, customValue: prev[pid]?.customValue ?? '' },
+                              }))
+                            }}
+                            className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm"
+                          >
+                            <option value="direct">直接连接</option>
+                            <option value="builtin">/api/cors</option>
+                            <option value="custom">自定义</option>
+                          </select>
+                          {corsDraft.mode === 'custom' && (
+                            <Input
+                              aria-label={`自定义 CORS ${p.name}`}
+                              placeholder="https://corsproxy.io/?"
+                              value={corsDraft.customValue}
+                              onChange={(e) => setCorsDrafts((prev) => ({
+                                ...prev,
+                                [pid]: { mode: 'custom', customValue: e.target.value },
+                              }))}
+                            />
+                          )}
                         </div>
                         {p.isBuiltIn === 0 && (
                           <div className="flex flex-wrap gap-2">
