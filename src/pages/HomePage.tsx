@@ -37,12 +37,14 @@ export function HomePage() {
   useEffect(() => {
     if (providers.length > 0) {
       const current = useSession.getState().activeProviderId
-      if (current == null) {
+      const currentProvider = providers.find((p) => p.id === current)
+      const currentHasKey = !!currentProvider && currentProvider.apiKey.trim().length > 0
+      if (current == null || !currentHasKey) {
         const firstConfigured = providers.find((provider) => provider.apiKey.trim().length > 0)
         setActiveProviderId(firstConfigured?.id ?? providers[0].id!)
       }
     }
-  }, [providers.length])
+  }, [providers.length, providers.map((p) => p.apiKey.trim().length > 0).join(',')])
 
   // Global cleanup: any conversation's 'generating' messages that are
   // older than 5min (i.e. the tab was closed/refreshed mid-request)
@@ -121,7 +123,12 @@ export function HomePage() {
       useSettings.getState().openSettings()
       return
     }
-    const pid = useSession.getState().activeProviderId ?? providers[0]?.id
+    const activeId = useSession.getState().activeProviderId
+    const activeProvider = providers.find((p) => p.id === activeId)
+    const pid =
+      activeProvider && activeProvider.apiKey.trim().length > 0
+        ? activeProvider.id
+        : (providers.find((p) => p.apiKey.trim().length > 0)?.id ?? providers[0]?.id)
     if (!pid) return
 
     let id: number | undefined

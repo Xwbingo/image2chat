@@ -85,6 +85,76 @@ it('selects the first provider when none has a configured key', async () => {
   await waitFor(() => expect(useSession.getState().activeProviderId).toBe(1))
 })
 
+it('switches activeProviderId to a newly-added configured provider when current is unconfigured', async () => {
+  mockedProviders = [{ id: 1, name: 'Packy', baseUrl: 'u1', apiKey: '', type: 'packy', isBuiltIn: 1, createdAt: 0 }]
+  useSession.getState().setActiveProviderId(null)
+  const tree = (
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/c/:conversationId" element={<HomePage />} />
+      </Routes>
+    </MemoryRouter>
+  )
+  const result = render(tree)
+  await waitFor(() => expect(useSession.getState().activeProviderId).toBe(1))
+
+  mockedProviders = [
+    { id: 1, name: 'Packy', baseUrl: 'u1', apiKey: '', type: 'packy', isBuiltIn: 1, createdAt: 0 },
+    { id: 2, name: 'uuapi', baseUrl: 'u2', apiKey: 'key', type: 'uuapi', isBuiltIn: 0, createdAt: 1 },
+  ]
+  await act(async () => {
+    result.rerender(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/c/:conversationId" element={<HomePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  })
+
+  await waitFor(() => expect(useSession.getState().activeProviderId).toBe(2))
+})
+
+it('switches activeProviderId when an existing built-in provider gets a configured key (first-entry flow)', async () => {
+  mockedProviders = [
+    { id: 1, name: 'Packy', baseUrl: 'u1', apiKey: '', type: 'packy', isBuiltIn: 1, createdAt: 0 },
+    { id: 2, name: 'RunAPI', baseUrl: 'u2', apiKey: '', type: 'runapi', isBuiltIn: 1, createdAt: 1 },
+    { id: 3, name: 'uuapi', baseUrl: 'u3', apiKey: '', type: 'uuapi', isBuiltIn: 1, createdAt: 2 },
+  ]
+  useSession.getState().setActiveProviderId(null)
+  const tree = (
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/c/:conversationId" element={<HomePage />} />
+      </Routes>
+    </MemoryRouter>
+  )
+  const result = render(tree)
+  await waitFor(() => expect(useSession.getState().activeProviderId).toBe(1))
+
+  // User fills in uuapi's apiKey (existing provider, count stays at 3)
+  mockedProviders = [
+    { id: 1, name: 'Packy', baseUrl: 'u1', apiKey: '', type: 'packy', isBuiltIn: 1, createdAt: 0 },
+    { id: 2, name: 'RunAPI', baseUrl: 'u2', apiKey: '', type: 'runapi', isBuiltIn: 1, createdAt: 1 },
+    { id: 3, name: 'uuapi', baseUrl: 'u3', apiKey: 'key', type: 'uuapi', isBuiltIn: 1, createdAt: 2 },
+  ]
+  await act(async () => {
+    result.rerender(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/c/:conversationId" element={<HomePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  })
+
+  await waitFor(() => expect(useSession.getState().activeProviderId).toBe(3))
+})
+
 
 it('shows 密钥管理 when no provider has a configured key', async () => {
   mockedProviders = [{ id: 1, name: 'P', baseUrl: 'u', apiKey: '', type: 'custom', isBuiltIn: 0, createdAt: 0 }]
@@ -96,6 +166,21 @@ it('shows 密钥管理 when no provider has a configured key', async () => {
 it('shows 新建对话 when a provider has a configured key', async () => {
   renderHomePage('/')
   expect(await screen.findByRole('button', { name: '新建对话' })).toBeInTheDocument()
+})
+
+it('handleNew binds the new conversation to a provider that actually has a configured key', async () => {
+  mockedProviders = [
+    { id: 1, name: 'Stale', baseUrl: 'u1', apiKey: '', type: 'custom', isBuiltIn: 0, createdAt: 0 },
+    { id: 2, name: 'Ready', baseUrl: 'u2', apiKey: 'key', type: 'custom', isBuiltIn: 0, createdAt: 1 },
+  ]
+  useSession.getState().setActiveProviderId(1)
+  renderHomePage('/')
+  await userEvent.click(await screen.findByRole('button', { name: '新建对话' }))
+  await waitFor(async () => {
+    const convs = await db.conversations.toArray()
+    expect(convs).toHaveLength(1)
+    expect(convs[0].providerPresetId).toBe(2)
+  })
 })
 it('does not render a retry button on the failed assistant bubble', async () => {
   await db.conversations.add({ title: 'Chat', createdAt: 0, updatedAt: 0, providerPresetId: 1 })
