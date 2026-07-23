@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,103 +7,158 @@ import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Trash2, Plus, Zap, ChevronDown } from 'lucide-react'
 import { useProviders } from '@/hooks/useProviders'
-import { addProvider, updateProvider, deleteProvider } from '@/lib/repo'
 import { db, type ProviderPreset } from '@/lib/db'
 import { validateApiKey } from '@/lib/api/validate'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { usePillToast } from '@/hooks/usePillToast'
 import { useSettings } from '@/stores/useSettings'
-import { corsDraftFromValue, corsValueFromDraft, type CorsDraft } from '@/lib/api/corsConfig'
+import { corsDraftFromValue } from '@/lib/api/corsConfig'
 import { cn } from '@/lib/utils'
+
+type ProviderDraft = ProviderPreset & { draftKey: string }
+
+const editableFields = [
+  'name',
+  'baseUrl',
+  'apiKey',
+  'type',
+  'isBuiltIn',
+  'createdAt',
+  'corsProxy',
+  'lastValidatedAt',
+  'lastValid',
+] as const
 
 export function SettingsSheet() {
   const providers = useProviders()
   const open = useSettings((s) => s.open)
-  const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({})
-  const [corsDrafts, setCorsDrafts] = useState<Record<number, CorsDraft>>({})
+  const [drafts, setDrafts] = useState<ProviderDraft[]>([])
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
   const [key, setKey] = useState('')
-  const [testingId, setTestingId] = useState<number | null>(null)
+  const [testingId, setTestingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const initializedRef = useRef(false)
+  const originalRef = useRef<ProviderPreset[]>([])
+  const nextDraftIdRef = useRef(0)
 
   useEffect(() => {
-    setKeyDrafts((prev) => {
-      if (Object.keys(prev).length > 0) return prev
-      const k: Record<number, string> = {}
-      for (const p of providers) {
-        if (p.id == null) continue
-        k[p.id] = p.apiKey
-      }
-      return k
-    })
-    setCorsDrafts((prev) => {
-      const next: Record<number, CorsDraft> = { ...prev }
-      let changed = false
-      for (const p of providers) {
-        if (p.id == null) continue
-        if (next[p.id] == null) {
-          next[p.id] = corsDraftFromValue(p.corsProxy)
-          changed = true
-        }
-      }
-      return changed ? next : prev
-    })
-  }, [providers])
+    if (!open) {
+      initializedRef.current = false
+      originalRef.current = []
+      setDrafts([])
+      setAdding(false)
+      setName('')
+      setUrl('')
+      setKey('')
+      return
+    }
+    if (initializedRef.current || providers.length === 0) return
+
+    const snapshot = providers.map((provider) => ({ ...provider }))
+    originalRef.current = snapshot
+    setDrafts(snapshot.map((provider) => ({
+      ...provider,
+      draftKey: `persisted-${provider.id}`,
+    })))
+    initializedRef.current = true
+  }, [open, providers])
+
+  function updateDraft(draftKey: string, patch: Partial<ProviderPreset>) {
+    setDrafts((prev) => prev.map((draft) => (
+      draft.draftKey === draftKey ? { ...draft, ...patch } : draft
+    )))
+  }
 
   async function handleSave() {
     setSaving(true)
     try {
-      for (const p of providers) {
-        if (p.id == null) continue
-        const patch: Partial<ProviderPreset> = {}
-        if (keyDrafts[p.id] !== p.apiKey) patch.apiKey = keyDrafts[p.id] ?? ''
-        const newValue = corsValueFromDraft(corsDrafts[p.id] ?? { mode: 'direct' })
-        if (newValue !== (p.corsProxy ?? undefined)) {
-          patch.corsProxy = newValue
+      const original = originalRef.current
+      await db.transaction('rw', db.providers, async () => {
+        const originalById = new Map(
+          original.filter((provider) => provider.id != null).map((provider) => [provider.id!, provider]),
+        )
+        const keptIds = new Set<number>()
+
+        for (const draft of drafts) {
+          if (draft.id == null) {
+            const { draftKey: _, id: __, ...provider } = draft
+            await db.providers.add(provider)
+            continue
+          }
+
+          keptIds.add(draft.id)
+          const stored = originalById.get(draft.id)
+          if (!stored) continue
+          const patch: Partial<ProviderPreset> = {}
+          for (const field of editableFields) {
+            if (draft[field] !== stored[field]) {
+              Object.assign(patch, { [field]: draft[field] })
+            }
+          }
+          if (Object.keys(patch).length > 0) {
+            await db.providers.update(draft.id, patch)
+          }
         }
-        if (Object.keys(patch).length > 0) {
-          await updateProvider(p.id, patch)
+
+        for (const provider of original) {
+          if (provider.id != null && provider.isBuiltIn === 0 && !keptIds.has(provider.id)) {
+            await db.providers.delete(provider.id)
+          }
         }
-      }
+      })
       useSettings.getState().closeSettings()
+    } catch {
+      usePillToast.getState().show('保存失败，请重试', { variant: 'error' })
     } finally {
       setSaving(false)
     }
   }
 
   async function saveAdd() {
-    if (!name.trim() || !url.trim()) return
-    const existing = await db.providers.where('baseUrl').equals(url.trim()).first()
-    if (existing?.id != null) {
-      await updateProvider(existing.id, { apiKey: key.trim(), name: name.trim() })
-    } else {
-      await addProvider({
-        name: name.trim(), baseUrl: url.trim(), apiKey: key.trim(),
-        type: 'custom', isBuiltIn: 0, createdAt: Date.now(),
-      })
-    }
-    setAdding(false); setName(''); setUrl(''); setKey('')
+    const trimmedName = name.trim()
+    const trimmedUrl = url.trim()
+    if (!trimmedName || !trimmedUrl) return
+
+    setDrafts((prev) => {
+      const existing = prev.find((provider) => provider.baseUrl === trimmedUrl)
+      if (existing) {
+        return prev.map((provider) => provider.draftKey === existing.draftKey
+          ? { ...provider, name: trimmedName, apiKey: key.trim() }
+          : provider)
+      }
+
+      return [...prev, {
+        draftKey: `temporary-${nextDraftIdRef.current++}`,
+        name: trimmedName,
+        baseUrl: trimmedUrl,
+        apiKey: key.trim(),
+        type: 'custom',
+        isBuiltIn: 0,
+        createdAt: Date.now(),
+      }]
+    })
+    setAdding(false)
+    setName('')
+    setUrl('')
+    setKey('')
   }
 
-  async function handleTest(p: ProviderPreset & { id: number }) {
-    const currentKey = keyDrafts[p.id] ?? p.apiKey
-    if (!currentKey) {
+  async function handleTest(p: ProviderDraft) {
+    if (!p.apiKey) {
       usePillToast.getState().show('请先填写密钥再测试', { variant: 'warning' })
       return
     }
-    const currentCors = corsValueFromDraft(corsDrafts[p.id] ?? { mode: 'direct' })
-    setTestingId(p.id)
+    setTestingId(p.draftKey)
     usePillToast.getState().show('正在连接中转站…', { variant: 'info' })
-    const result = await validateApiKey(p.baseUrl, currentKey, currentCors)
+    const result = await validateApiKey(p.baseUrl, p.apiKey, p.corsProxy)
     setTestingId(null)
+    updateDraft(p.draftKey, { lastValidatedAt: Date.now(), lastValid: result.valid ? 1 : 0 })
     if (result.valid) {
-      await updateProvider(p.id, { lastValidatedAt: Date.now(), lastValid: 1 })
       usePillToast.getState().show(`${p.name} 连接正常，可以生成图片`, { variant: 'success' })
     } else {
-      await updateProvider(p.id, { lastValidatedAt: Date.now(), lastValid: 0 })
       const msg = result.error?.message ?? '未知错误'
       usePillToast.getState().show(`无法确认密钥有效：${msg}`, { variant: 'error' })
     }
@@ -130,12 +185,10 @@ export function SettingsSheet() {
             </div>
           )}
           <div className="space-y-3">
-            {providers.map((p) => {
-              if (p.id == null) return null
-              const pid = p.id
-              const corsDraft = corsDrafts[pid] ?? { mode: 'direct' }
+            {drafts.map((p) => {
+              const corsDraft = corsDraftFromValue(p.corsProxy)
               return (
-                <Card key={pid}>
+                <Card key={p.draftKey}>
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-base">{p.name}</CardTitle>
@@ -156,15 +209,15 @@ export function SettingsSheet() {
                       <div className="flex gap-2">
                         <Input
                           type="password"
-                          value={keyDrafts[pid] ?? ''}
-                          onChange={(e) => setKeyDrafts((prev) => ({ ...prev, [pid]: e.target.value }))}
+                          value={p.apiKey}
+                          onChange={(e) => updateDraft(p.draftKey, { apiKey: e.target.value })}
                           className="flex-1"
                         />
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleTest({ ...p, id: pid })}
-                          disabled={testingId === pid}
+                          onClick={() => handleTest(p)}
+                          disabled={testingId === p.draftKey}
                           aria-label="测试密钥"
                           className="h-11 shrink-0"
                         >
@@ -183,7 +236,7 @@ export function SettingsSheet() {
                           <div
                             role="radiogroup"
                             aria-label={`CORS 模式 ${p.name}`}
-                            data-testid={`cors-mode-group-${pid}`}
+                            data-testid={`cors-mode-group-${p.draftKey}`}
                             className="flex flex-wrap gap-1.5"
                           >
                             {([
@@ -199,10 +252,7 @@ export function SettingsSheet() {
                                   aria-checked={active}
                                   data-role="cors-mode-chip"
                                   data-mode={opt.value}
-                                  onClick={() => setCorsDrafts((prev) => ({
-                                    ...prev,
-                                    [pid]: { mode: opt.value },
-                                  }))}
+                                  onClick={() => updateDraft(p.draftKey, { corsProxy: opt.value === 'builtin' ? '/api/cors' : undefined })}
                                   className={cn(
                                     'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
                                     active
@@ -218,7 +268,7 @@ export function SettingsSheet() {
                         </div>
                         {p.isBuiltIn === 0 && (
                           <div className="flex flex-wrap gap-2">
-                            <Button size="sm" variant="outline" onClick={() => deleteProvider(pid)}>
+                            <Button size="sm" variant="outline" onClick={() => setDrafts((prev) => prev.filter((draft) => draft.draftKey !== p.draftKey))}>
                               <Trash2 className="w-3 h-3 mr-1" /> 删除
                             </Button>
                           </div>

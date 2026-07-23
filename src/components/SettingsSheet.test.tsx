@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { db } from '@/lib/db'
@@ -19,12 +19,40 @@ function renderOpen() {
 }
 
 async function expandAdvanced(providerName = 'Packy') {
-  const card = await screen.findByText(providerName)
-  const cardRoot = card.closest('[data-slot="card"]') ?? card.closest('.space-y-3') ?? card.parentElement
-  const details = cardRoot?.querySelector('details') ?? screen.getByText('高级配置').closest('details')
+  const card = await getProviderCard(providerName)
+  const details = card.querySelector('details')
   if (details && !details.hasAttribute('open')) {
     await userEvent.click(details.querySelector('summary')!)
   }
+}
+
+async function getProviderCard(name: string) {
+  const title = await screen.findByText(name)
+  const card = title.closest('.rounded-lg.border.bg-card')
+  if (!(card instanceof HTMLElement)) throw new Error(`Provider card not found: ${name}`)
+  return card
+}
+
+async function addCustomDraft(name: string, url: string, key: string) {
+  await userEvent.click(screen.getByRole('button', { name: /添加自定义/ }))
+  await userEvent.type(screen.getByRole('textbox', { name: '名称' }), name)
+  await userEvent.type(screen.getByRole('textbox', { name: '域名' }), url)
+  await userEvent.type(screen.getByLabelText('SK 密钥'), key)
+  await userEvent.click(screen.getByRole('button', { name: '添加' }))
+  await screen.findByText(name)
+}
+
+async function deleteDraft(name: string) {
+  await expandAdvanced(name)
+  const card = await getProviderCard(name)
+  await userEvent.click(within(card).getByRole('button', { name: /删除/ }))
+  await waitFor(() => expect(screen.queryByText(name)).not.toBeInTheDocument())
+}
+
+async function validateDraft(name: string) {
+  const card = await getProviderCard(name)
+  await userEvent.click(within(card).getByRole('button', { name: '测试密钥' }))
+  await waitFor(() => expect(within(card).getByText(/有效/)).toBeInTheDocument())
 }
 
 beforeEach(async () => {
@@ -59,19 +87,116 @@ it('shows the inline custom provider form and requires name and domain', async (
   expect(screen.getByRole('button', { name: '添加' })).toBeEnabled()
 })
 
-it('creates a custom provider from the inline form', async () => {
+it('adds a custom provider to the draft without writing IndexedDB', async () => {
   renderOpen()
-  await userEvent.click(screen.getByRole('button', { name: /添加自定义/ }))
-  await userEvent.type(screen.getByRole('textbox', { name: '名称' }), 'Custom')
-  await userEvent.type(screen.getByRole('textbox', { name: '域名' }), 'https://custom.example')
-  await userEvent.type(screen.getByLabelText('SK 密钥'), 'custom-key')
-  await userEvent.click(screen.getByRole('button', { name: '添加' }))
+  await addCustomDraft('Custom', 'https://custom.example', 'custom-key')
+
+  expect(await db.providers.where('baseUrl').equals('https://custom.example').count()).toBe(0)
+  expect(screen.getByText('Custom')).toBeInTheDocument()
+})
+
+it('updates a matching custom domain in the draft without writing IndexedDB', async () => {
+  const pid = (await db.providers.add({ name: 'Stored', baseUrl: 'https://custom.example', apiKey: 'old-key', type: 'custom', isBuiltIn: 0, createdAt: 0 })) as number
+  renderOpen()
+  await addCustomDraft('Renamed', 'https://custom.example', 'new-key')
+
+  expect(await db.providers.get(pid)).toMatchObject({ name: 'Stored', apiKey: 'old-key' })
+  expect(screen.getByText('Renamed')).toBeInTheDocument()
+})
+
+it('keeps add, edit, delete, and validation changes out of IndexedDB before save', async () => {
+  const builtInId = (await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'stored-key', type: 'packy', isBuiltIn: 1, createdAt: 0 })) as number
+  const customId = (await db.providers.add({ name: 'Old Custom', baseUrl: 'https://old.example', apiKey: 'old-key', type: 'custom', isBuiltIn: 0, createdAt: 1 })) as number
+  renderOpen()
+
+  const keyInput = (await screen.findByDisplayValue('stored-key')) as HTMLInputElement
+  await userEvent.clear(keyInput)
+  await userEvent.type(keyInput, 'draft-key')
+  await addCustomDraft('New Custom', 'https://new.example', 'new-key')
+  await deleteDraft('Old Custom')
+  await validateDraft('Packy')
+
+  const storedBuiltIn = await db.providers.get(builtInId)
+  expect(storedBuiltIn).toMatchObject({ apiKey: 'stored-key' })
+  expect(storedBuiltIn?.lastValidatedAt).toBeUndefined()
+  expect(storedBuiltIn?.lastValid).toBeUndefined()
+  expect(await db.providers.get(customId)).toMatchObject({ name: 'Old Custom', apiKey: 'old-key' })
+  expect(await db.providers.where('baseUrl').equals('https://new.example').count()).toBe(0)
+})
+
+it('discards every provider draft when the sheet closes and reopens', async () => {
+  const builtInId = (await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'stored-key', type: 'packy', isBuiltIn: 1, createdAt: 0 })) as number
+  const customId = (await db.providers.add({ name: 'Old Custom', baseUrl: 'https://old.example', apiKey: 'old-key', type: 'custom', isBuiltIn: 0, createdAt: 1 })) as number
+  renderOpen()
+
+  const keyInput = (await screen.findByDisplayValue('stored-key')) as HTMLInputElement
+  await userEvent.clear(keyInput)
+  await userEvent.type(keyInput, 'draft-key')
+  await addCustomDraft('New Custom', 'https://new.example', 'new-key')
+  await deleteDraft('Old Custom')
+  await validateDraft('Packy')
+
+  act(() => useSettings.getState().closeSettings())
+  await waitFor(() => expect(useSettings.getState().open).toBe(false))
+  act(() => useSettings.getState().openSettings())
+
+  expect(await screen.findByDisplayValue('stored-key')).toBeInTheDocument()
+  expect(screen.getByText('Old Custom')).toBeInTheDocument()
+  expect(screen.queryByText('New Custom')).not.toBeInTheDocument()
+  const card = await getProviderCard('Packy')
+  expect(within(card).queryByText(/有效/)).not.toBeInTheDocument()
+  expect(await db.providers.get(builtInId)).toMatchObject({ apiKey: 'stored-key' })
+  expect(await db.providers.get(customId)).toMatchObject({ name: 'Old Custom' })
+})
+
+it('atomically persists all pending provider changes on save', async () => {
+  const builtInId = (await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'stored-key', type: 'packy', isBuiltIn: 1, createdAt: 0 })) as number
+  const customId = (await db.providers.add({ name: 'Old Custom', baseUrl: 'https://old.example', apiKey: 'old-key', type: 'custom', isBuiltIn: 0, createdAt: 1 })) as number
+  renderOpen()
+
+  const keyInput = (await screen.findByDisplayValue('stored-key')) as HTMLInputElement
+  await userEvent.clear(keyInput)
+  await userEvent.type(keyInput, 'draft-key')
+  await addCustomDraft('New Custom', 'https://new.example', 'new-key')
+  await deleteDraft('Old Custom')
+  await validateDraft('Packy')
+  await userEvent.click(screen.getAllByRole('button', { name: '保存' })[0])
 
   await waitFor(async () => {
-    const provider = await db.providers.where('baseUrl').equals('https://custom.example').first()
-    expect(provider).toMatchObject({ name: 'Custom', apiKey: 'custom-key', type: 'custom', isBuiltIn: 0 })
+    const saved = await db.providers.get(builtInId)
+    expect(saved).toMatchObject({ apiKey: 'draft-key', lastValid: 1 })
+    expect(saved?.lastValidatedAt).toEqual(expect.any(Number))
+    expect(await db.providers.get(customId)).toBeUndefined()
+    expect(await db.providers.where('baseUrl').equals('https://new.example').first()).toMatchObject({ name: 'New Custom', apiKey: 'new-key' })
+    expect(useSettings.getState().open).toBe(false)
   })
 })
+
+it('keeps the sheet open and rolls back all changes when save fails', async () => {
+  const builtInId = (await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'stored-key', type: 'packy', isBuiltIn: 1, createdAt: 0 })) as number
+  const customId = (await db.providers.add({ name: 'Old Custom', baseUrl: 'https://old.example', apiKey: 'old-key', type: 'custom', isBuiltIn: 0, createdAt: 1 })) as number
+  renderOpen()
+
+  const keyInput = (await screen.findByDisplayValue('stored-key')) as HTMLInputElement
+  await userEvent.clear(keyInput)
+  await userEvent.type(keyInput, 'draft-key')
+  await addCustomDraft('New Custom', 'https://new.example', 'new-key')
+  await deleteDraft('Old Custom')
+
+  const deleteSpy = vi.spyOn(db.providers, 'delete').mockRejectedValueOnce(new Error('save failed'))
+  await userEvent.click(screen.getAllByRole('button', { name: '保存' })[0])
+  await waitFor(() => expect(deleteSpy).toHaveBeenCalled())
+  await waitFor(() => expect(screen.getAllByRole('button', { name: '保存' })[0]).toBeEnabled())
+  deleteSpy.mockRestore()
+
+  expect(useSettings.getState().open).toBe(true)
+  expect(await db.providers.get(builtInId)).toMatchObject({ apiKey: 'stored-key' })
+  expect(await db.providers.get(customId)).toMatchObject({ name: 'Old Custom', apiKey: 'old-key' })
+  expect(await db.providers.where('baseUrl').equals('https://new.example').count()).toBe(0)
+  expect(screen.getByDisplayValue('draft-key')).toBeInTheDocument()
+  expect(screen.getByText('New Custom')).toBeInTheDocument()
+})
+
 it('renders as a sliding sheet with title 密钥管理(完成后新建对话) and a 保存 footer button', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'k1', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   renderOpen()
