@@ -168,7 +168,7 @@ export function SettingsSheet() {
     <Sheet open={open} onOpenChange={(o) => { if (!o) useSettings.getState().closeSettings() }}>
       <SheetContent side="right" showCloseButton={false} className="w-[min(320px,85vw)] sm:max-w-md p-0 flex flex-col">
         <SheetHeader className="p-3 border-b border-border">
-          <SheetTitle>密钥管理(完成后新建对话)</SheetTitle>
+          <SheetTitle>密钥管理</SheetTitle>
         </SheetHeader>
         <div className="flex-1 overflow-y-auto p-3">
           <div className="flex justify-end mb-3">

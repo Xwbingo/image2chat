@@ -25,6 +25,7 @@ export function HomePage() {
   const params = useParams<{ conversationId?: string }>()
   const conversationId = params.conversationId ? Number(params.conversationId) : undefined
   const providers = useProviders()
+  const hasConfiguredKey = providers.some((provider) => provider.apiKey.trim().length > 0)
   const { setActiveProviderId } = useSession()
   const { generate } = useGenerate()
   const { toast } = useToast()
@@ -36,7 +37,10 @@ export function HomePage() {
   useEffect(() => {
     if (providers.length > 0) {
       const current = useSession.getState().activeProviderId
-      if (current == null) setActiveProviderId(providers[0].id!)
+      if (current == null) {
+        const firstConfigured = providers.find((provider) => provider.apiKey.trim().length > 0)
+        setActiveProviderId(firstConfigured?.id ?? providers[0].id!)
+      }
     }
   }, [providers.length])
 
@@ -164,7 +168,7 @@ export function HomePage() {
       <PillToast />
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden md:block h-full">
-          <Sidebar activeId={conversationId} onSelect={(id) => navigate(`/c/${id}`)} onNew={handleNew} />
+          <Sidebar activeId={conversationId} onSelect={(id) => navigate(`/c/${id}`)} onNew={handleNew} hasConfiguredKey={hasConfiguredKey} />
         </div>
         <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {conversationId == null ? (
@@ -180,7 +184,7 @@ export function HomePage() {
                 <div>
                   <p className="text-lg mb-4">开始一次新的创作</p>
                   <div className="flex gap-2 justify-center">
-                    <Button onClick={handleNew}>新建对话</Button>
+                    <Button onClick={handleNew}>{hasConfiguredKey ? '新建对话' : '密钥管理'}</Button>
                   </div>
                 </div>
               </div>
@@ -208,7 +212,7 @@ export function HomePage() {
       </div>
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="left" showCloseButton={false} className="p-0 w-64">
-          <Sidebar activeId={conversationId} onSelect={(id) => { setDrawerOpen(false); navigate(`/c/${id}`) }} onNew={handleNew} />
+          <Sidebar activeId={conversationId} onSelect={(id) => { setDrawerOpen(false); navigate(`/c/${id}`) }} onNew={handleNew} hasConfiguredKey={hasConfiguredKey} />
         </SheetContent>
       </Sheet>
       <ImageViewer

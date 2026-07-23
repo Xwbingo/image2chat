@@ -197,10 +197,14 @@ it('keeps the sheet open and rolls back all changes when save fails', async () =
   expect(screen.getByText('New Custom')).toBeInTheDocument()
 })
 
-it('renders as a sliding sheet with title 密钥管理(完成后新建对话) and a 保存 footer button', async () => {
+it('renders the simplified 密钥管理 title', async () => {
+  renderOpen()
+  expect(await screen.findByText('密钥管理')).toBeInTheDocument()
+  expect(screen.queryByText('密钥管理(完成后新建对话)')).not.toBeInTheDocument()
+})
+it('renders the 保存 footer button', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'k1', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   renderOpen()
-  expect(await screen.findByText('密钥管理(完成后新建对话)')).toBeInTheDocument()
   expect(screen.getAllByRole('button', { name: '保存' })[0]).toBeInTheDocument()
 })
 
@@ -373,7 +377,7 @@ it('keeps 测试 button and 删除 for custom providers', async () => {
 it('does not render ThemeToggle inside the sheet', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   renderOpen()
-  await screen.findByText('密钥管理(完成后新建对话)')
+  await screen.findByText('密钥管理')
   expect(screen.queryByLabelText(/主题|toggle theme|theme/i)).not.toBeInTheDocument()
 })
 

@@ -13,6 +13,7 @@ interface Props {
   activeId?: number
   onSelect: (id: number) => void
   onNew: () => void
+  hasConfiguredKey: boolean
 }
 
 type ConvStatus = 'idle' | 'generating' | 'failed'
@@ -38,7 +39,7 @@ function useConversationStatuses(items: Conversation[]): Map<number, ConvStatus>
   return statuses
 }
 
-export function Sidebar({ activeId, onSelect, onNew }: Props) {
+export function Sidebar({ activeId, onSelect, onNew, hasConfiguredKey }: Props) {
   const conversations = useConversations()
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const statuses = useConversationStatuses(conversations)
@@ -59,7 +60,7 @@ export function Sidebar({ activeId, onSelect, onNew }: Props) {
             <Plus className="w-4 h-4" />
           </div>
           <div className="flex flex-col items-start flex-1 min-w-0">
-            <span className="text-sm font-semibold text-foreground">新建对话</span>
+            <span className="text-sm font-semibold text-foreground">{hasConfiguredKey ? '新建对话' : '密钥管理'}</span>
             <span className="text-[10px] text-muted-foreground">开启新的创作</span>
           </div>
           <Sparkles className="w-3.5 h-3.5 text-primary opacity-60" />

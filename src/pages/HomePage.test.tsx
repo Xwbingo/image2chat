@@ -13,8 +13,10 @@ vi.mock('@/hooks/useGenerate', () => ({
   useGenerate: () => ({ generate }),
 }))
 
+let mockedProviders = [{ id: 1, name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 }]
+
 vi.mock('@/hooks/useProviders', () => ({
-  useProviders: () => [{ id: 1, name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 }],
+  useProviders: () => mockedProviders,
 }))
 
 vi.mock('@/components/Sidebar', () => ({ Sidebar: () => null }))
@@ -38,10 +40,11 @@ vi.mock('@/components/ChatView', () => ({
   },
 }))
 
-function renderHomePage() {
+function renderHomePage(initialEntry = '/c/1') {
   return render(
-    <MemoryRouter initialEntries={['/c/1']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
+        <Route path="/" element={<HomePage />} />
         <Route path="/c/:conversationId" element={<HomePage />} />
       </Routes>
     </MemoryRouter>,
@@ -57,10 +60,43 @@ beforeEach(async () => {
   await db.open()
   localStorage.clear()
   useSession.getState().setActiveProviderId(null)
+  mockedProviders = [{ id: 1, name: 'P', baseUrl: 'u', apiKey: 'k', type: 'custom', isBuiltIn: 0, createdAt: 0 }]
   generate.mockReset()
   generate.mockResolvedValue({ messageId: 4 })
 })
 
+it('selects the first provider with a configured key on first use', async () => {
+  mockedProviders = [
+    { id: 1, name: 'Empty', baseUrl: 'u1', apiKey: '', type: 'custom', isBuiltIn: 0, createdAt: 0 },
+    { id: 2, name: 'Ready', baseUrl: 'u2', apiKey: 'key', type: 'custom', isBuiltIn: 0, createdAt: 1 },
+  ]
+  useSession.getState().setActiveProviderId(null)
+  renderHomePage()
+  await waitFor(() => expect(useSession.getState().activeProviderId).toBe(2))
+})
+
+it('selects the first provider when none has a configured key', async () => {
+  mockedProviders = [
+    { id: 1, name: 'First', baseUrl: 'u1', apiKey: '', type: 'custom', isBuiltIn: 0, createdAt: 0 },
+    { id: 2, name: 'Second', baseUrl: 'u2', apiKey: '', type: 'custom', isBuiltIn: 0, createdAt: 1 },
+  ]
+  useSession.getState().setActiveProviderId(null)
+  renderHomePage()
+  await waitFor(() => expect(useSession.getState().activeProviderId).toBe(1))
+})
+
+
+it('shows 密钥管理 when no provider has a configured key', async () => {
+  mockedProviders = [{ id: 1, name: 'P', baseUrl: 'u', apiKey: '', type: 'custom', isBuiltIn: 0, createdAt: 0 }]
+  renderHomePage('/')
+  expect((await screen.findAllByRole('button', { name: '密钥管理' })).length).toBeGreaterThan(0)
+  expect(screen.queryByRole('button', { name: '新建对话' })).not.toBeInTheDocument()
+})
+
+it('shows 新建对话 when a provider has a configured key', async () => {
+  renderHomePage('/')
+  expect(await screen.findByRole('button', { name: '新建对话' })).toBeInTheDocument()
+})
 it('does not render a retry button on the failed assistant bubble', async () => {
   await db.conversations.add({ title: 'Chat', createdAt: 0, updatedAt: 0, providerPresetId: 1 })
   await db.messages.bulkAdd([

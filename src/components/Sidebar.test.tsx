@@ -9,7 +9,7 @@ import { Sidebar } from './Sidebar'
 beforeEach(async () => { await db.delete(); await db.open() })
 
 it('renders empty state', () => {
-  render(<Sidebar onSelect={() => {}} onNew={() => {}} />)
+  render(<Sidebar onSelect={() => {}} onNew={() => {}} hasConfiguredKey />)
   expect(screen.getByText('新建对话')).toBeInTheDocument()
 })
 
@@ -26,7 +26,7 @@ it('lists conversations and calls onSelect on click', async () => {
 })
 
 it('renders new-chat as theme card with purple gradient', () => {
-  const { container } = render(<Sidebar onSelect={() => {}} onNew={() => {}} />)
+  const { container } = render(<Sidebar onSelect={() => {}} onNew={() => {}} hasConfiguredKey />)
   const card = screen.getByText('新建对话').closest('[data-card]')
   expect(card).toBeInTheDocument()
   expect(card).toHaveStyle({ backgroundImage: 'var(--gradient-purple)' })
