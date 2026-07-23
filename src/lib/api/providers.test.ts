@@ -7,12 +7,12 @@ describe('getSupportedSizes', () => {
     expect(sizes).toHaveLength(8)
     expect(sizes).toContain('1152x2048')
   })
-  it('runapi supports the 6 non-4K sizes', () => {
+  it('runapi supports all 8 sizes including 4K', () => {
     const sizes = getSupportedSizes('runapi')
-    expect(sizes).not.toContain('3840x2160')
-    expect(sizes).not.toContain('2160x3840')
+    expect(sizes).toContain('3840x2160')
+    expect(sizes).toContain('2160x3840')
     expect(sizes).toContain('1152x2048')
-    expect(sizes).toHaveLength(6)
+    expect(sizes).toHaveLength(8)
   })
   it('uuapi supports all 8 sizes', () => {
     expect(getSupportedSizes('uuapi')).toHaveLength(8)

@@ -1,124 +1,195 @@
 import 'fake-indexeddb/auto'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach } from 'vitest'
+import { beforeEach, vi } from 'vitest'
 import { db } from '@/lib/db'
 import { StatusBar } from './StatusBar'
 import { useSettings } from '@/stores/useSettings'
 
+const { setConversationProviderMock } = vi.hoisted(() => ({
+  setConversationProviderMock: vi.fn(),
+}))
+
+vi.mock('@/lib/repo', () => ({
+  setConversationProvider: setConversationProviderMock,
+}))
+
 beforeEach(async () => {
+  setConversationProviderMock.mockReset()
+  setConversationProviderMock.mockResolvedValue(undefined)
   await db.delete()
   await db.open()
   localStorage.clear()
   useSettings.setState({ open: false })
 })
 
-async function waitForDefaultRow(providerName = 'Packy') {
-  return screen.findByRole('button', { name: new RegExp(`当前：${providerName}`) })
+async function toggle() {
+  return screen.findByTestId('status-bar-toggle')
 }
 
-it('renders current provider and size in the default row chips', async () => {
+it('renders the read-only summary row with provider name and size label', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   render(<StatusBar />)
-  expect(await waitForDefaultRow('Packy')).toBeInTheDocument()
-  expect(screen.getByText(/尺寸：2K 横向/)).toBeInTheDocument()
+  expect(await screen.findByTestId('provider-name')).toHaveTextContent('Packy')
+  expect(screen.getByTestId('size-name')).toHaveTextContent('2K 横向')
+  const row = await toggle()
+  expect(row).toHaveAttribute('aria-expanded', 'false')
 })
 
-it('renders the status bar as a rounded card with the documented classes', async () => {
-  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
-  const { container } = render(<StatusBar />)
-  const card = await screen.findByTestId('status-bar-card')
-  expect(card).toHaveClass('rounded-2xl')
-  expect(card).toHaveClass('border')
-  expect(card).toHaveClass('border-border')
-  expect(card).toHaveClass('bg-card')
-  expect(card).toHaveClass('shadow-sm')
-  expect(card).toBe(container.firstChild)
-})
-
-it('toggles the expanded popover when the default row is clicked', async () => {
+it('toggles the popover when the header is clicked twice', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   render(<StatusBar />)
-  expect(screen.queryByTestId('status-bar-popover')).not.toBeInTheDocument()
-  await userEvent.click(await waitForDefaultRow('Packy'))
-  expect(await screen.findByTestId('status-bar-popover')).toBeInTheDocument()
-  await userEvent.click(screen.getByRole('button', { name: /当前：Packy/ }))
-  expect(screen.queryByTestId('status-bar-popover')).not.toBeInTheDocument()
+  await userEvent.click(await toggle())
+  await waitFor(() => {
+    expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'true')
+  })
+  await userEvent.click(screen.getByTestId('status-bar-toggle'))
+  await waitFor(() => {
+    expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'false')
+  })
 })
 
-it('shows vertical provider chips in the expanded popover', async () => {
+it('renders three size buckets: 1K, 2K, 4K', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  render(<StatusBar />)
+  await userEvent.click(await toggle())
+  const popover = await screen.findByTestId('status-bar-popover')
+  const buckets = popover.querySelectorAll('[data-role="size-bucket-toggle"]')
+  expect(buckets).toHaveLength(3)
+  expect(buckets[0]).toHaveTextContent('1K')
+  expect(buckets[1]).toHaveTextContent('2K')
+  expect(buckets[2]).toHaveTextContent('4K')
+})
+
+it('auto-expands the active size bucket on open and collapses the others', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  render(<StatusBar />)
+  await userEvent.click(await toggle())
+  const popover = await screen.findByTestId('status-bar-popover')
+  const buckets = Array.from(popover.querySelectorAll<HTMLElement>('[data-role="size-bucket-toggle"]'))
+  const twoKBucket = buckets.find((b) => b.textContent?.includes('2K'))
+  expect(twoKBucket).toHaveAttribute('aria-expanded', 'true')
+})
+
+it('keeps the provider and size buckets mutually exclusive', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  render(<StatusBar />)
+  await userEvent.click(await toggle())
+
+  const popover = await screen.findByTestId('status-bar-popover')
+  const providerToggle = popover.querySelector<HTMLElement>('[data-role="provider-bucket-toggle"]')!
+  const buckets = Array.from(popover.querySelectorAll<HTMLElement>('[data-role="size-bucket-toggle"]'))
+  const fourKBucket = buckets.find((bucket) => bucket.textContent?.startsWith('4K'))!
+
+  await userEvent.click(providerToggle)
+  expect(providerToggle).toHaveAttribute('aria-expanded', 'true')
+  expect(buckets.every((bucket) => bucket.getAttribute('aria-expanded') === 'false')).toBe(true)
+
+  await userEvent.click(fourKBucket)
+  expect(providerToggle).toHaveAttribute('aria-expanded', 'false')
+  expect(fourKBucket).toHaveAttribute('aria-expanded', 'true')
+  expect(buckets.filter((bucket) => bucket !== fourKBucket).every((bucket) => bucket.getAttribute('aria-expanded') === 'false')).toBe(true)
+
+  await userEvent.click(providerToggle)
+  expect(providerToggle).toHaveAttribute('aria-expanded', 'true')
+  expect(fourKBucket).toHaveAttribute('aria-expanded', 'false')
+})
+
+it('always renders 1K, 2K, and 4K buckets when packy supports all sizes', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  render(<StatusBar />)
+  await userEvent.click(await toggle())
+  const popover = await screen.findByTestId('status-bar-popover')
+  expect(popover.querySelectorAll('[data-role="size-bucket-toggle"]')).toHaveLength(3)
+})
+
+it('does not close when clicking outside the popover', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  render(<StatusBar />)
+  await userEvent.click(await toggle())
+  await waitFor(() => {
+    expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'true')
+  })
+  document.body.click()
+  expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'true')
+})
+
+it('renders a provider bucket toggle that starts collapsed', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  render(<StatusBar />)
+  await userEvent.click(await toggle())
+  const popover = await screen.findByTestId('status-bar-popover')
+  const providerToggle = popover.querySelector('[data-role="provider-bucket-toggle"]') as HTMLElement | null
+  expect(providerToggle).toBeTruthy()
+  expect(providerToggle).toHaveAttribute('aria-expanded', 'false')
+  await userEvent.click(providerToggle!)
+  await waitFor(() => {
+    expect(providerToggle).toHaveAttribute('aria-expanded', 'true')
+  })
+})
+
+it('selects the provider and keeps the popover open', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   await db.providers.add({ name: 'Other', baseUrl: 'o', apiKey: 'k2', type: 'custom', isBuiltIn: 0, createdAt: 1 })
   render(<StatusBar />)
-  await userEvent.click(await waitForDefaultRow('Packy'))
+  await userEvent.click(await toggle())
   const popover = await screen.findByTestId('status-bar-popover')
-  const providerButtons = popover.querySelectorAll('[data-role="provider-chip"]')
-  expect(providerButtons).toHaveLength(2)
-  expect(providerButtons[0]).toHaveTextContent('Packy')
-  expect(providerButtons[1]).toHaveTextContent('Other')
-})
-
-it('shows vertical size chips in the expanded popover', async () => {
-  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
-  render(<StatusBar />)
-  await userEvent.click(await waitForDefaultRow('Packy'))
-  const popover = await screen.findByTestId('status-bar-popover')
-  const sizeButtons = popover.querySelectorAll('[data-role="size-chip"]')
-  expect(sizeButtons.length).toBeGreaterThan(0)
-  expect(Array.from(sizeButtons).some((b) => b.textContent?.includes('1:1'))).toBe(true)
-  expect(Array.from(sizeButtons).some((b) => b.textContent?.includes('2K 横向'))).toBe(true)
-})
-
-it('keeps the popover open and selects the provider when a provider chip is clicked', async () => {
-  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
-  await db.providers.add({ name: 'Other', baseUrl: 'o', apiKey: 'k2', type: 'custom', isBuiltIn: 0, createdAt: 1 })
-  render(<StatusBar />)
-  await userEvent.click(await waitForDefaultRow('Packy'))
-  await userEvent.click(screen.getByRole('button', { name: /^Other$/ }))
-  expect(screen.getByTestId('status-bar-popover')).toBeInTheDocument()
+  await userEvent.click(popover.querySelector('[data-role="provider-bucket-toggle"]')!)
+  await userEvent.click(screen.getByRole('button', { name: /^Other/ }))
+  expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'true')
   expect(localStorage.getItem('i2c.activeProviderId')).toBe('2')
 })
 
-it('keeps the popover open and selects the size when a size chip is clicked', async () => {
+it('keeps the immediate provider selection when conversation persistence rejects', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  await db.providers.add({ name: 'Other', baseUrl: 'o', apiKey: 'k2', type: 'custom', isBuiltIn: 0, createdAt: 1 })
+  setConversationProviderMock.mockRejectedValueOnce(new Error('persistence failed'))
+  render(<StatusBar activeConversationId={42} />)
+
+  await userEvent.click(await toggle())
+  const popover = await screen.findByTestId('status-bar-popover')
+  await userEvent.click(popover.querySelector('[data-role="provider-bucket-toggle"]')!)
+  await userEvent.click(screen.getByRole('button', { name: /^Other/ }))
+
+  await waitFor(() => {
+    expect(setConversationProviderMock).toHaveBeenCalledWith(42, 2)
+    expect(screen.getByTestId('provider-name')).toHaveTextContent('Other')
+    expect(localStorage.getItem('i2c.activeProviderId')).toBe('2')
+  })
+})
+
+it('selects the size and keeps the popover open', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   render(<StatusBar />)
-  await userEvent.click(await waitForDefaultRow('Packy'))
-  await userEvent.click(screen.getByRole('button', { name: /1:1/ }))
-  expect(screen.getByTestId('status-bar-popover')).toBeInTheDocument()
+  await userEvent.click(await toggle())
+  await userEvent.click(screen.getByRole('button', { name: /^1K$/ }))
+  await userEvent.click(screen.getByRole('button', { name: /1:1.*1024/ }))
+  expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'true')
   expect(localStorage.getItem('i2c.defaultSize')).toBe('1024x1024')
 })
 
-it('renders a 完成 button in the expanded popover that collapses the popover', async () => {
+it('does not render a 完成 button or helper chip-copy', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   render(<StatusBar />)
-  await userEvent.click(await waitForDefaultRow('Packy'))
-  const done = await screen.findByRole('button', { name: '完成' })
-  await userEvent.click(done)
-  expect(screen.queryByTestId('status-bar-popover')).not.toBeInTheDocument()
-})
-
-it('renders a helper text line inside the expanded popover', async () => {
-  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
-  render(<StatusBar />)
-  await userEvent.click(await waitForDefaultRow('Packy'))
+  await userEvent.click(await toggle())
   const popover = await screen.findByTestId('status-bar-popover')
-  expect(popover.querySelector('[data-role="helper-text"]')).not.toBeNull()
+  expect(popover.querySelector('button[role="done"]')).toBeNull()
+  expect(screen.queryByRole('button', { name: '完成' })).not.toBeInTheDocument()
 })
 
 it('renders the 未配置 chip and opens settings when there is no provider', async () => {
   render(<StatusBar />)
   const chip = await screen.findByRole('button', { name: /未配置/ })
-  expect(chip).toBeInTheDocument()
   await userEvent.click(chip)
   await waitFor(() => {
     expect(useSettings.getState().open).toBe(true)
   })
 })
 
-it('positions the expanded popover absolutely so the bottom dock height is unchanged', async () => {
+it('positions the popover absolutely so the bottom dock height is unchanged', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   render(<StatusBar />)
-  await userEvent.click(await waitForDefaultRow('Packy'))
+  await userEvent.click(await toggle())
   const popover = await screen.findByTestId('status-bar-popover')
   expect(popover).toHaveClass('absolute')
 })

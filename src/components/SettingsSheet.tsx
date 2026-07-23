@@ -16,6 +16,7 @@ import { zhCN } from 'date-fns/locale'
 import { usePillToast } from '@/hooks/usePillToast'
 import { useSettings } from '@/stores/useSettings'
 import { corsDraftFromValue, corsValueFromDraft, type CorsDraft } from '@/lib/api/corsConfig'
+import { cn } from '@/lib/utils'
 
 export function SettingsSheet() {
   const providers = useProviders()
@@ -60,7 +61,7 @@ export function SettingsSheet() {
         if (p.id == null) continue
         const patch: Partial<ProviderPreset> = {}
         if (keyDrafts[p.id] !== p.apiKey) patch.apiKey = keyDrafts[p.id] ?? ''
-        const newValue = corsValueFromDraft(corsDrafts[p.id] ?? { mode: 'direct', customValue: '' })
+        const newValue = corsValueFromDraft(corsDrafts[p.id] ?? { mode: 'direct' })
         if (newValue !== (p.corsProxy ?? undefined)) {
           patch.corsProxy = newValue
         }
@@ -94,7 +95,7 @@ export function SettingsSheet() {
       usePillToast.getState().show('请先填写密钥再测试', { variant: 'warning' })
       return
     }
-    const currentCors = corsValueFromDraft(corsDrafts[p.id] ?? { mode: 'direct', customValue: '' })
+    const currentCors = corsValueFromDraft(corsDrafts[p.id] ?? { mode: 'direct' })
     setTestingId(p.id)
     usePillToast.getState().show('正在连接中转站…', { variant: 'info' })
     const result = await validateApiKey(p.baseUrl, currentKey, currentCors)
@@ -123,7 +124,7 @@ export function SettingsSheet() {
             {providers.map((p) => {
               if (p.id == null) return null
               const pid = p.id
-              const corsDraft = corsDrafts[pid] ?? { mode: 'direct', customValue: '' }
+              const corsDraft = corsDrafts[pid] ?? { mode: 'direct' }
               return (
                 <Card key={pid}>
                   <CardHeader className="flex flex-row items-center justify-between">
@@ -162,41 +163,49 @@ export function SettingsSheet() {
                         </Button>
                       </div>
                     </div>
-                    <details className="group">
+                    <details className="group" open>
                       <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none flex items-center gap-1 py-1 list-none [&::-webkit-details-marker]:hidden">
                         <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
                         <span>高级配置</span>
                       </summary>
                       <div className="space-y-3 mt-2">
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <Label className="text-xs">CORS 代理（可选）</Label>
-                          <select
+                          <div
+                            role="radiogroup"
                             aria-label={`CORS 模式 ${p.name}`}
-                            value={corsDraft.mode}
-                            onChange={(e) => {
-                              const mode = e.target.value as CorsDraft['mode']
-                              setCorsDrafts((prev) => ({
-                                ...prev,
-                                [pid]: { mode, customValue: prev[pid]?.customValue ?? '' },
-                              }))
-                            }}
-                            className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm"
+                            data-testid={`cors-mode-group-${pid}`}
+                            className="flex flex-wrap gap-1.5"
                           >
-                            <option value="direct">直接连接</option>
-                            <option value="builtin">/api/cors</option>
-                            <option value="custom">自定义</option>
-                          </select>
-                          {corsDraft.mode === 'custom' && (
-                            <Input
-                              aria-label={`自定义 CORS ${p.name}`}
-                              placeholder="https://corsproxy.io/?"
-                              value={corsDraft.customValue}
-                              onChange={(e) => setCorsDrafts((prev) => ({
-                                ...prev,
-                                [pid]: { mode: 'custom', customValue: e.target.value },
-                              }))}
-                            />
-                          )}
+                            {([
+                              { value: 'direct', label: '直接连接' },
+                              { value: 'builtin', label: '/api/cors' },
+                            ] as const).map((opt) => {
+                              const active = corsDraft.mode === opt.value
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={active}
+                                  data-role="cors-mode-chip"
+                                  data-mode={opt.value}
+                                  onClick={() => setCorsDrafts((prev) => ({
+                                    ...prev,
+                                    [pid]: { mode: opt.value },
+                                  }))}
+                                  className={cn(
+                                    'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                                    active
+                                      ? 'border-primary bg-primary/10 text-foreground shadow-sm'
+                                      : 'border-border bg-background text-muted-foreground hover:bg-accent',
+                                  )}
+                                >
+                                  {opt.label}
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
                         {p.isBuiltIn === 0 && (
                           <div className="flex flex-wrap gap-2">
