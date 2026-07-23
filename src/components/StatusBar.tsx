@@ -8,7 +8,7 @@ import { getSupportedSizes, type ImageSize } from '@/lib/api/providers'
 import { cn } from '@/lib/utils'
 
 const SIZE_LABELS: Record<ImageSize, string> = {
-  '1024x1024': '1:1', '1536x1024': '1K 横向', '1024x1536': '1K 纵向',
+  '1024x1024': '1K 正方形', '1536x1024': '1K 横向', '1024x1536': '1K 纵向',
   '2048x2048': '2K 正方形', '2048x1152': '2K 横向', '1152x2048': '2K 纵向',
   '3840x2160': '4K 横向', '2160x3840': '4K 纵向',
 }

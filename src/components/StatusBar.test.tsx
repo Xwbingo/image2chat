@@ -49,6 +49,13 @@ it('toggles the popover when the header is clicked twice', async () => {
   })
 })
 
+it('labels the 1K square size as 1K 正方形', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  render(<StatusBar />)
+  await userEvent.click(await toggle())
+  await userEvent.click(screen.getByRole('button', { name: /^1K/ }))
+  expect(screen.getByRole('button', { name: /1K 正方形.*1024/ })).toBeInTheDocument()
+})
 it('renders three size buckets: 1K, 2K, 4K', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   render(<StatusBar />)
@@ -60,6 +67,7 @@ it('renders three size buckets: 1K, 2K, 4K', async () => {
   expect(buckets[1]).toHaveTextContent('2K')
   expect(buckets[2]).toHaveTextContent('4K')
 })
+
 
 it('auto-expands the active size bucket on open and collapses the others', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
@@ -163,7 +171,7 @@ it('selects the size and keeps the popover open', async () => {
   render(<StatusBar />)
   await userEvent.click(await toggle())
   await userEvent.click(screen.getByRole('button', { name: /^1K$/ }))
-  await userEvent.click(screen.getByRole('button', { name: /1:1.*1024/ }))
+  await userEvent.click(screen.getByRole('button', { name: /1K 正方形.*1024/ }))
   expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'true')
   expect(localStorage.getItem('i2c.defaultSize')).toBe('1024x1024')
 })

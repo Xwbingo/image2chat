@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -118,8 +117,18 @@ export function SettingsSheet() {
         </SheetHeader>
         <div className="flex-1 overflow-y-auto p-3">
           <div className="flex justify-end mb-3">
-            <Button size="sm" onClick={() => setAdding(true)}><Plus className="w-4 h-4 mr-2" /> 添加自定义</Button>
+            <Button size="sm" onClick={() => setAdding((value) => !value)}>
+              <Plus className="w-4 h-4 mr-2" /> {adding ? '取消添加' : '添加自定义'}
+            </Button>
           </div>
+          {adding && (
+            <div className="mb-3 space-y-3 rounded-lg border border-border p-3">
+              <div><Label htmlFor="custom-provider-name">名称</Label><Input id="custom-provider-name" value={name} onChange={(e) => setName(e.target.value)} required /></div>
+              <div><Label htmlFor="custom-provider-url">域名</Label><Input id="custom-provider-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" required /></div>
+              <div><Label htmlFor="custom-provider-key">SK 密钥</Label><Input id="custom-provider-key" type="password" value={key} onChange={(e) => setKey(e.target.value)} /></div>
+              <Button className="w-full" onClick={saveAdd} disabled={!name.trim() || !url.trim()}>添加</Button>
+            </div>
+          )}
           <div className="space-y-3">
             {providers.map((p) => {
               if (p.id == null) return null
@@ -163,7 +172,7 @@ export function SettingsSheet() {
                         </Button>
                       </div>
                     </div>
-                    <details className="group" open>
+                    <details className="group">
                       <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none flex items-center gap-1 py-1 list-none [&::-webkit-details-marker]:hidden">
                         <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
                         <span>高级配置</span>
@@ -227,21 +236,6 @@ export function SettingsSheet() {
             {saving ? '保存中…' : '保存'}
           </Button>
         </div>
-
-        <Dialog open={adding} onOpenChange={setAdding}>
-          <DialogContent showCloseButton={false}>
-            <DialogHeader><DialogTitle>添加自定义中转站</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>名称</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-              <div><Label>域名</Label><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" /></div>
-              <div><Label>SK 密钥</Label><Input type="password" value={key} onChange={(e) => setKey(e.target.value)} /></div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setAdding(false)}>取消</Button>
-              <Button onClick={saveAdd}>添加</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </SheetContent>
     </Sheet>
   )

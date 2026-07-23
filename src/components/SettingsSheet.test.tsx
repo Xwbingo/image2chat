@@ -21,8 +21,10 @@ function renderOpen() {
 async function expandAdvanced(providerName = 'Packy') {
   const card = await screen.findByText(providerName)
   const cardRoot = card.closest('[data-slot="card"]') ?? card.closest('.space-y-3') ?? card.parentElement
-  const summary = await screen.findByText('高级配置')
-  await userEvent.click(summary)
+  const details = cardRoot?.querySelector('details') ?? screen.getByText('高级配置').closest('details')
+  if (details && !details.hasAttribute('open')) {
+    await userEvent.click(details.querySelector('summary')!)
+  }
 }
 
 beforeEach(async () => {
@@ -33,12 +35,50 @@ beforeEach(async () => {
   useSettings.setState({ open: false })
 })
 
+it('keeps advanced settings collapsed by default', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'k1', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  renderOpen()
+  const summary = await screen.findByText('高级配置')
+  expect(summary.closest('details')).not.toHaveAttribute('open')
+})
+
+it('shows the inline custom provider form and requires name and domain', async () => {
+  await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'k1', type: 'packy', isBuiltIn: 1, createdAt: 0 })
+  renderOpen()
+  await userEvent.click(screen.getByRole('button', { name: /添加自定义/ }))
+
+  expect(screen.queryByRole('dialog', { name: '添加自定义中转站' })).not.toBeInTheDocument()
+  expect(screen.getByRole('textbox', { name: '名称' })).toBeInTheDocument()
+  expect(screen.getByRole('textbox', { name: '域名' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '添加' })).toBeDisabled()
+
+  await userEvent.type(screen.getByRole('textbox', { name: '名称' }), 'Custom')
+  expect(screen.getByRole('button', { name: '添加' })).toBeDisabled()
+
+  await userEvent.type(screen.getByRole('textbox', { name: '域名' }), 'https://custom.example')
+  expect(screen.getByRole('button', { name: '添加' })).toBeEnabled()
+})
+
+it('creates a custom provider from the inline form', async () => {
+  renderOpen()
+  await userEvent.click(screen.getByRole('button', { name: /添加自定义/ }))
+  await userEvent.type(screen.getByRole('textbox', { name: '名称' }), 'Custom')
+  await userEvent.type(screen.getByRole('textbox', { name: '域名' }), 'https://custom.example')
+  await userEvent.type(screen.getByLabelText('SK 密钥'), 'custom-key')
+  await userEvent.click(screen.getByRole('button', { name: '添加' }))
+
+  await waitFor(async () => {
+    const provider = await db.providers.where('baseUrl').equals('https://custom.example').first()
+    expect(provider).toMatchObject({ name: 'Custom', apiKey: 'custom-key', type: 'custom', isBuiltIn: 0 })
+  })
+})
 it('renders as a sliding sheet with title 密钥管理(完成后新建对话) and a 保存 footer button', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'k1', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   renderOpen()
   expect(await screen.findByText('密钥管理(完成后新建对话)')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument()
+  expect(screen.getAllByRole('button', { name: '保存' })[0]).toBeInTheDocument()
 })
+
 
 it('renders apiKey input and two-option CORS mode chips (no custom field)', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'https://p', apiKey: 'secret-key', corsProxy: 'https://corsproxy.io/?', type: 'packy', isBuiltIn: 1, createdAt: 0 })
@@ -99,7 +139,7 @@ it('saves apiKey + builtin CORS and closes the sheet', async () => {
   await userEvent.type(keyInput, 'new-key')
 
   await userEvent.click(screen.getByRole('radio', { name: '/api/cors' }))
-  await userEvent.click(screen.getByRole('button', { name: '保存' }))
+  await userEvent.click(screen.getAllByRole('button', { name: '保存' })[0])
 
   await waitFor(async () => {
     const p = await db.providers.get(pid)
@@ -123,9 +163,9 @@ it('does not write when drafts equal current values', async () => {
   db.providers.update = vi.fn((...args: unknown[]) => {
     writes++
     return (origUpdate as (...a: unknown[]) => Promise<unknown>)(...args)
-  }) as typeof db.providers.update
+  }) as unknown as typeof db.providers.update
 
-  await userEvent.click(screen.getByRole('button', { name: '保存' }))
+  await userEvent.click(screen.getAllByRole('button', { name: '保存' })[0])
 
   await waitFor(() => {
     expect(writes).toBe(0)
@@ -141,7 +181,7 @@ it('converts direct mode to undefined corsProxy', async () => {
   await expandAdvanced()
 
   await userEvent.click(screen.getByRole('radio', { name: '直接连接' }))
-  await userEvent.click(screen.getByRole('button', { name: '保存' }))
+  await userEvent.click(screen.getAllByRole('button', { name: '保存' })[0])
 
   await waitFor(async () => {
     const p = await db.providers.get(pid)
@@ -155,7 +195,7 @@ it('persists builtin mode as the exact /api/cors value', async () => {
   await expandAdvanced()
 
   await userEvent.click(screen.getByRole('radio', { name: '/api/cors' }))
-  await userEvent.click(screen.getByRole('button', { name: '保存' }))
+  await userEvent.click(screen.getAllByRole('button', { name: '保存' })[0])
 
   await waitFor(async () => {
     const p = await db.providers.get(pid)
