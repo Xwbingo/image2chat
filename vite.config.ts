@@ -87,7 +87,7 @@ export default defineConfig({
     react(),
     corsProxyDevPlugin(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       manifest: {
         name: 'image2chat',
         short_name: 'image2chat',
