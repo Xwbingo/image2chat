@@ -124,6 +124,55 @@ it('upload via file input calls onAddLocal with the File', async () => {
   expect(onAddLocal).toHaveBeenCalledWith(file)
 })
 
+it('multi-file upload adds every valid file up to the remaining reference slots', async () => {
+  const { onAddLocal, onRemoveRef, onClearRefs } = setup({
+    refs: [
+      { blobId: 1, kind: 'local', fileName: 'existing.png' },
+    ],
+  })
+  const input = screen.getByTestId('file-input') as HTMLInputElement
+  const files = [
+    new File([new Uint8Array([1])], 'a.png', { type: 'image/png' }),
+    new File([new Uint8Array([2])], 'b.png', { type: 'image/png' }),
+    new File([new Uint8Array([3])], 'c.png', { type: 'image/png' }),
+  ]
+
+  await userEvent.upload(input, files)
+
+  expect(onAddLocal).toHaveBeenCalledTimes(2)
+  expect(onAddLocal).toHaveBeenNthCalledWith(1, files[0])
+  expect(onAddLocal).toHaveBeenNthCalledWith(2, files[1])
+  expect(onRemoveRef).not.toHaveBeenCalled()
+  expect(onClearRefs).not.toHaveBeenCalled()
+})
+
+it('oversized files in a multi-upload do not block subsequent valid files', async () => {
+  const { onAddLocal } = setup()
+  const input = screen.getByTestId('file-input') as HTMLInputElement
+  const big = new File([new Uint8Array(11 * 1024 * 1024)], 'big.png', { type: 'image/png' })
+  const ok1 = new File([new Uint8Array([1])], 'ok1.png', { type: 'image/png' })
+  const ok2 = new File([new Uint8Array([2])], 'ok2.png', { type: 'image/png' })
+
+  await userEvent.upload(input, [big, ok1, ok2])
+
+  expect(onAddLocal).toHaveBeenCalledTimes(2)
+  expect(onAddLocal).toHaveBeenNthCalledWith(1, ok1)
+  expect(onAddLocal).toHaveBeenNthCalledWith(2, ok2)
+})
+
+it('re-selecting the same file still triggers onAddLocal because the input resets after each pick', async () => {
+  const { onAddLocal } = setup()
+  const input = screen.getByTestId('file-input') as HTMLInputElement
+  const file = new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })
+
+  await userEvent.upload(input, file)
+  await userEvent.upload(input, file)
+
+  expect(onAddLocal).toHaveBeenCalledTimes(2)
+  expect(onAddLocal).toHaveBeenNthCalledWith(1, file)
+  expect(onAddLocal).toHaveBeenNthCalledWith(2, file)
+})
+
 it('clicking the upload button triggers .click() on the hidden file input', async () => {
   setup()
   const input = screen.getByTestId('file-input') as HTMLInputElement
