@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { useSession } from '@/stores/useSession'
 import { useProviders } from '@/hooks/useProviders'
@@ -70,18 +70,18 @@ function SizeBuckets({ sizes, defaultSize, openSection, onToggle, onSelect, curr
                 )}
               </span>
               <ChevronDown
-                className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform duration-200', open && 'rotate-180')}
+                className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform duration-300 ease-smooth', open && 'rotate-180')}
                 aria-hidden
               />
             </button>
             <div
               className={cn(
-                'overflow-hidden transition-[max-height,opacity] duration-200 ease-out',
-                open ? 'max-h-[420px] opacity-100' : 'pointer-events-none max-h-0 opacity-0',
+                'grid transition-[grid-template-rows,opacity] duration-300 ease-smooth',
+                open ? 'grid-rows-[1fr] opacity-100' : 'pointer-events-none grid-rows-[0fr] opacity-0',
               )}
               aria-hidden={!open}
             >
-              <div className="min-h-0">
+              <div className="overflow-hidden min-h-0">
                 <div className="grid grid-cols-3 gap-1.5 px-2 pb-2">
                   {items.map((s) => {
                     const active = s === defaultSize
@@ -131,12 +131,25 @@ export function StatusBar({ activeConversationId }: Props) {
   const [openSection, setOpenSection] = useState<'provider' | string | null>(SIZE_BUCKETS.find((b) => b.match(defaultSize))?.label ?? SIZE_BUCKETS[0].label)
   const activeProvider = providers.find((p) => p.id === activeProviderId) ?? providers[0]
   const hasProvider = providers.length > 0
+  const cardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!expanded) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setExpanded(false) }
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('keydown', onKey) }
+  }, [expanded])
+
+  useEffect(() => {
+    if (!expanded) return
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node | null
+      if (!target || !cardRef.current) return
+      if (cardRef.current.contains(target)) return
+      setExpanded(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => { document.removeEventListener('pointerdown', onPointerDown) }
   }, [expanded])
 
   function selectProvider(id: number) {
@@ -181,6 +194,7 @@ export function StatusBar({ activeConversationId }: Props) {
 
   return (
     <div
+      ref={cardRef}
       data-testid="status-bar-card"
       className="relative border border-border bg-card shadow-sm"
     >
@@ -206,7 +220,7 @@ export function StatusBar({ activeConversationId }: Props) {
         </span>
         <ChevronDown
           aria-hidden
-          className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200', expanded && 'rotate-180')}
+          className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-300 ease-smooth', expanded && 'rotate-180')}
         />
       </button>
 
@@ -216,15 +230,19 @@ export function StatusBar({ activeConversationId }: Props) {
         aria-hidden={!expanded}
         className={cn(
           'absolute left-0 right-0 bottom-full mb-1 origin-bottom border border-border bg-card shadow-md',
-          'transition-all duration-200 ease-out',
+          'transition-[transform,opacity] duration-300 ease-smooth',
           expanded
             ? 'pointer-events-auto translate-y-0 opacity-100'
             : 'pointer-events-none translate-y-1 opacity-0',
         )}
       >
         <div
-          className={cn('overflow-hidden transition-[max-height] duration-200 ease-out', expanded ? 'max-h-[60vh]' : 'max-h-0')}
+          className={cn(
+            'grid transition-[grid-template-rows] duration-300 ease-smooth',
+            expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+          )}
         >
+          <div className="overflow-hidden min-h-0">
           <div className="space-y-2 rounded-2xl p-3">
             <div className="rounded-xl border border-border bg-background">
               <button
@@ -239,18 +257,18 @@ export function StatusBar({ activeConversationId }: Props) {
                   <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{activeProvider?.name ?? '未配置'}</span>
                 </span>
                 <ChevronDown
-                  className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform duration-200', openSection === 'provider' && 'rotate-180')}
+                  className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform duration-300 ease-smooth', openSection === 'provider' && 'rotate-180')}
                   aria-hidden
                 />
               </button>
               <div
                 className={cn(
-                  'overflow-hidden transition-[max-height,opacity] duration-200 ease-out',
-                  openSection === 'provider' ? 'max-h-[320px] opacity-100' : 'pointer-events-none max-h-0 opacity-0',
+                  'grid transition-[grid-template-rows,opacity] duration-300 ease-smooth',
+                  openSection === 'provider' ? 'grid-rows-[1fr] opacity-100' : 'pointer-events-none grid-rows-[0fr] opacity-0',
                 )}
                 aria-hidden={openSection !== 'provider'}
               >
-                <div className="min-h-0">
+                <div className="overflow-hidden min-h-0">
                   <div className="grid grid-cols-1 gap-1.5 px-2 pb-2">
                     {providers.map((p) => {
                       if (p.id == null) return null
@@ -292,6 +310,7 @@ export function StatusBar({ activeConversationId }: Props) {
               onSelect={setDefaultSize}
               currentBucket={currentBucket}
             />
+          </div>
           </div>
         </div>
       </div>

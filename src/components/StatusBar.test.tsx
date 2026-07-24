@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
 import { db } from '@/lib/db'
@@ -111,15 +111,17 @@ it('always renders 1K, 2K, and 4K buckets when packy supports all sizes', async 
   expect(popover.querySelectorAll('[data-role="size-bucket-toggle"]')).toHaveLength(3)
 })
 
-it('does not close when clicking outside the popover', async () => {
+it('closes when clicking outside the popover', async () => {
   await db.providers.add({ name: 'Packy', baseUrl: 'u', apiKey: 'k', type: 'packy', isBuiltIn: 1, createdAt: 0 })
   render(<StatusBar />)
   await userEvent.click(await toggle())
   await waitFor(() => {
     expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'true')
   })
-  document.body.click()
-  expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'true')
+  fireEvent.pointerDown(document.body, { target: document.body })
+  await waitFor(() => {
+    expect(screen.getByTestId('status-bar-toggle')).toHaveAttribute('aria-expanded', 'false')
+  })
 })
 
 it('renders a provider bucket toggle that starts collapsed', async () => {

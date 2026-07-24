@@ -54,7 +54,7 @@ export function ImageViewer({ blobId, prompt, onClose }: Props) {
               alt="result"
               className="max-w-full object-contain select-none"
               draggable={false}
-              style={{ cursor: 'grab', touchAction: 'pinch-zoom' }}
+              style={{ cursor: 'grab', touchAction: 'pan-y pinch-zoom' }}
             />
           )}
         </div>

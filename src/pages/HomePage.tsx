@@ -58,9 +58,15 @@ export function HomePage() {
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
+    // Ignore tiny viewport deltas (iOS Safari bounce / rubber-band / URL-bar
+    // toggling) so the bottom dock doesn't jitter when the user is scrolling
+    // near the edge of the chat. Only the keyboard actually shifts the
+    // composer by a meaningful amount.
+    const KEYBOARD_THRESHOLD_PX = 80
     const update = () => {
       const hidden = window.innerHeight - vv.height
-      setBottomInset(Math.max(0, hidden))
+      const next = hidden >= KEYBOARD_THRESHOLD_PX ? hidden : 0
+      setBottomInset((prev) => (prev === next ? prev : next))
     }
     update()
     vv.addEventListener('resize', update)

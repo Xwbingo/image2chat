@@ -24,3 +24,13 @@ it('image is constrained to viewport (object-contain)', async () => {
     expect(img.className).toContain('object-contain')
   })
 })
+
+it('img allows vertical pan so long images can scroll on mobile', async () => {
+  const id = await db.images.add({ blob: new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' }), mimeType: 'image/png', createdAt: 0 })
+  render(<ImageViewer blobId={id} onClose={() => {}} />)
+  await waitFor(() => {
+    const img = screen.getByRole('img') as HTMLImageElement
+    expect(img.style.touchAction).toContain('pan-y')
+    expect(img.style.touchAction).toContain('pinch-zoom')
+  })
+})

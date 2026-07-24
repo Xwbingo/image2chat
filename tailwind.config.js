@@ -42,6 +42,9 @@ export default {
         'float-in': 'float-in 200ms cubic-bezier(0.4, 0, 0.2, 1)',
         'pill-toast-in': 'pill-toast-in 200ms cubic-bezier(0.4, 0, 0.2, 1)',
       },
+      transitionTimingFunction: {
+        smooth: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
     },
   },
   plugins: [animate],

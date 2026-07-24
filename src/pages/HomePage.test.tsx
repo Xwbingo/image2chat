@@ -328,3 +328,69 @@ it('does not render a standalone < md hamburger row above ChatView', () => {
   expect(buttons).toHaveLength(2)
   expect(buttons.map((b) => b.textContent?.trim())).toEqual(['发送', '引用按钮'])
 })
+
+it('treats small viewport deltas (e.g. iOS bounce) as zero so the bottom dock does not jitter', async () => {
+  // Simulate a tiny (rubber-band) viewport delta: hidden = 40px < 80px threshold.
+  const listeners: Record<string, Array<() => void>> = {}
+  const fakeVV = {
+    height: 800 - 40,
+    addEventListener: (event: string, cb: () => void) => {
+      listeners[event] = listeners[event] ?? []
+      listeners[event].push(cb)
+    },
+    removeEventListener: (event: string, cb: () => void) => {
+      if (!listeners[event]) return
+      listeners[event] = listeners[event].filter((fn) => fn !== cb)
+    },
+    dispatchEvent: (event: string) => {
+      for (const cb of listeners[event] ?? []) cb()
+    },
+  }
+  const originalVV = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+  Object.defineProperty(window, 'visualViewport', { configurable: true, writable: true, value: fakeVV })
+  Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 800 })
+
+  try {
+    renderHomePage()
+    fakeVV.dispatchEvent('resize')
+    await waitFor(() => {
+      expect((capturedProps.bottomInset as number | undefined) ?? 0).toBe(0)
+    })
+  } finally {
+    if (originalVV) Object.defineProperty(window, 'visualViewport', originalVV)
+  }
+})
+
+it('shifts the bottom dock only when the visualViewport shrinks by >= 80px (keyboard)', async () => {
+  const listeners: Record<string, Array<() => void>> = {}
+  let height = 800
+  const fakeVV = {
+    get height() { return height },
+    addEventListener: (event: string, cb: () => void) => {
+      listeners[event] = listeners[event] ?? []
+      listeners[event].push(cb)
+    },
+    removeEventListener: (event: string, cb: () => void) => {
+      if (!listeners[event]) return
+      listeners[event] = listeners[event].filter((fn) => fn !== cb)
+    },
+    dispatchEvent: (event: string) => {
+      for (const cb of listeners[event] ?? []) cb()
+    },
+  }
+  const originalVV = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+  Object.defineProperty(window, 'visualViewport', { configurable: true, writable: true, value: fakeVV })
+  Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 800 })
+
+  try {
+    renderHomePage()
+    // Simulate keyboard opening: viewport shrinks by 260px (well above 80px threshold).
+    height = 800 - 260
+    fakeVV.dispatchEvent('resize')
+    await waitFor(() => {
+      expect(capturedProps.bottomInset).toBe(260)
+    })
+  } finally {
+    if (originalVV) Object.defineProperty(window, 'visualViewport', originalVV)
+  }
+})
