@@ -79,19 +79,52 @@ export function Composer({
   }, [thumbUrls])
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const fileList = e.target.files
     e.target.value = ''
-    if (refs.length >= MAX_REFS) {
+    if (!fileList || fileList.length === 0) return
+    const remaining = MAX_REFS - refs.length
+    if (remaining <= 0) {
       toast({ variant: 'destructive', title: '已达上限', description: `最多 ${MAX_REFS} 张参考图` })
       return
     }
-    if (file.size > MAX_FILE_SIZE) {
-      toast({ variant: 'destructive', title: '图片过大', description: `${file.name} 超过 10MB` })
-      return
+    const files = Array.from(fileList)
+    const accepted: File[] = []
+    const oversized: File[] = []
+    const droppedByLimit: string[] = []
+    for (const f of files) {
+      if (f.size > MAX_FILE_SIZE) {
+        oversized.push(f)
+        continue
+      }
+      if (accepted.length < remaining) {
+        accepted.push(f)
+      } else {
+        droppedByLimit.push(f.name)
+      }
     }
-    onAddLocal(file)
-    pill.show('已添加参考图', { variant: 'success' })
+    for (const f of accepted) onAddLocal(f)
+    if (accepted.length > 0) {
+      pill.show('已添加参考图', { variant: 'success' })
+    }
+    if (oversized.length > 0 && droppedByLimit.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: '部分文件未添加',
+        description: `${oversized.map((f) => f.name).join('、')} 超过 10MB；${droppedByLimit.join('、')} 已达上限`,
+      })
+    } else if (oversized.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: oversized.length === 1 ? '图片过大' : '部分图片过大',
+        description: `${oversized.map((f) => f.name).join('、')} 超过 10MB`,
+      })
+    } else if (droppedByLimit.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: '已达上限',
+        description: `${droppedByLimit.join('、')} 未添加，最多 ${MAX_REFS} 张参考图`,
+      })
+    }
   }
 
   function handleSend() {
@@ -224,6 +257,7 @@ export function Composer({
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
         onChange={handleFile}
         data-testid="file-input"
