@@ -173,6 +173,33 @@ it('re-selecting the same file still triggers onAddLocal because the input reset
   expect(onAddLocal).toHaveBeenNthCalledWith(2, file)
 })
 
+it('snapshots selected files before resetting the input value', () => {
+  const { onAddLocal } = setup()
+  const input = screen.getByTestId('file-input') as HTMLInputElement
+  const file = new File([new Uint8Array([1])], 'desktop.png', { type: 'image/png' })
+  const liveFiles = {
+    0: file,
+    length: 1,
+    item: (index: number) => index === 0 ? file : null,
+  } as unknown as FileList
+
+  Object.defineProperty(input, 'files', {
+    configurable: true,
+    get: () => liveFiles,
+  })
+  Object.defineProperty(input, 'value', {
+    configurable: true,
+    get: () => '',
+    set: () => {
+      delete (liveFiles as unknown as { 0?: File })[0]
+      liveFiles.length = 0
+    },
+  })
+
+  fireEvent.change(input)
+
+  expect(onAddLocal).toHaveBeenCalledWith(file)
+})
 it('clicking the upload button triggers .click() on the hidden file input', async () => {
   setup()
   const input = screen.getByTestId('file-input') as HTMLInputElement

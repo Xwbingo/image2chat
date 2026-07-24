@@ -79,15 +79,14 @@ export function Composer({
   }, [thumbUrls])
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const fileList = e.target.files
+    const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!fileList || fileList.length === 0) return
+    if (files.length === 0) return
     const remaining = MAX_REFS - refs.length
     if (remaining <= 0) {
       toast({ variant: 'destructive', title: '已达上限', description: `最多 ${MAX_REFS} 张参考图` })
       return
     }
-    const files = Array.from(fileList)
     const accepted: File[] = []
     const oversized: File[] = []
     const droppedByLimit: string[] = []
