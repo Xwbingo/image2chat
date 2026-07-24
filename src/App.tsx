@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Toaster } from '@/components/ui/toaster'
 import { OnboardingWizard } from '@/components/OnboardingWizard'
+import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt'
 import { SettingsSheet } from '@/components/SettingsSheet'
 import { seedBuiltinProviders, dedupeProviders } from '@/lib/repo'
 import { router } from '@/routes'
@@ -46,6 +47,7 @@ export default function App() {
     <>
       <RouterProvider router={router} />
       <Toaster />
+      <PwaUpdatePrompt />
       <SettingsSheet />
     </>
   )
